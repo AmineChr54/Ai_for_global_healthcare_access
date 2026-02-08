@@ -20,6 +20,7 @@ import csv
 import json
 import logging
 import re
+import time as _time
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -113,15 +114,33 @@ SQL RULES:
 - Use COUNT(DISTINCT pk_unique_id) to avoid duplicate counts.
 - Use address_stateOrRegion for region queries, address_city for city queries.
 
-SPECIALTY FILTERING (CRITICAL):
-When expanded_terms are provided, use THOSE EXACT terms with specialties ILIKE '%term%'.
-Do NOT invent your own search terms.
+SPECIALTY FILTERING (CRITICAL — READ CAREFULLY):
+When expanded_terms are provided, you MUST use ONLY those exact terms for matching.
+Do NOT use the user's original words (e.g. "pediatric care", "heart surgery") in ILIKE patterns.
+Instead, use the expanded_terms values (e.g. "pediatrics", "cardiacSurgery").
+
+The expanded_terms are the canonical column values that ACTUALLY EXIST in the data.
+The user's natural language terms (like "pediatric care") do NOT exist in the data and will return 0 rows.
+
+MATCHING ACROSS MULTIPLE COLUMNS:
+For each expanded term, search across specialties, procedure, capability, AND equipment columns.
+This is critical because a facility might list a service in capability/procedure but not in specialties.
+
+RULE: For EACH expanded term T, create a combined condition:
+  (specialties ILIKE '%T%' OR procedure ILIKE '%T%' OR capability ILIKE '%T%' OR equipment ILIKE '%T%')
+If multiple expanded terms, combine the per-term conditions with OR inside parentheses.
 
 EXAMPLES:
 User: "How many hospitals have cardiology?" (expanded_terms: ["cardiology"])
-primary_sql: SELECT COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE specialties ILIKE '%cardiology%' AND facilityTypeId = 'hospital'
-detail_sql: SELECT DISTINCT name, address_city, address_stateOrRegion, specialties FROM facilities WHERE specialties ILIKE '%cardiology%' AND facilityTypeId = 'hospital' ORDER BY address_stateOrRegion LIMIT 50
-distribution_sql: SELECT address_stateOrRegion AS region, COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE specialties ILIKE '%cardiology%' AND facilityTypeId = 'hospital' GROUP BY address_stateOrRegion ORDER BY count DESC
+primary_sql: SELECT COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE (specialties ILIKE '%cardiology%' OR procedure ILIKE '%cardiology%' OR capability ILIKE '%cardiology%') AND facilityTypeId = 'hospital'
+detail_sql: SELECT DISTINCT name, address_city, address_stateOrRegion, specialties, facilityTypeId FROM facilities WHERE (specialties ILIKE '%cardiology%' OR procedure ILIKE '%cardiology%' OR capability ILIKE '%cardiology%') AND facilityTypeId = 'hospital' ORDER BY address_stateOrRegion LIMIT 50
+distribution_sql: SELECT address_stateOrRegion AS region, COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE (specialties ILIKE '%cardiology%' OR procedure ILIKE '%cardiology%' OR capability ILIKE '%cardiology%') AND facilityTypeId = 'hospital' GROUP BY address_stateOrRegion ORDER BY count DESC
+
+User: "Show facilities offering pediatric care in Ashanti" (expanded_terms: ["pediatrics"])
+primary_sql: SELECT COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE (specialties ILIKE '%pediatrics%' OR procedure ILIKE '%pediatrics%' OR capability ILIKE '%pediatrics%') AND address_stateOrRegion ILIKE '%Ashanti%'
+  NOTE: Uses "pediatrics" (from expanded_terms), NOT "pediatric care" (from user query).
+detail_sql: SELECT DISTINCT name, address_city, address_stateOrRegion, specialties, facilityTypeId FROM facilities WHERE (specialties ILIKE '%pediatrics%' OR procedure ILIKE '%pediatrics%' OR capability ILIKE '%pediatrics%') AND address_stateOrRegion ILIKE '%Ashanti%' ORDER BY name LIMIT 50
+distribution_sql: SELECT address_stateOrRegion AS region, COUNT(DISTINCT pk_unique_id) AS count FROM facilities WHERE (specialties ILIKE '%pediatrics%' OR procedure ILIKE '%pediatrics%' OR capability ILIKE '%pediatrics%') GROUP BY address_stateOrRegion ORDER BY count DESC
 """
 
 SYNTHESIS_SYSTEM_PROMPT = """You are a healthcare intelligence analyst for the Virtue Foundation.
@@ -171,7 +190,145 @@ REGION POPULATIONS:
 """
 
 
+# ── Resilient LLM caller ─────────────────────────────────────────────────────
+
+
+def _invoke_with_retry(structured_llm, messages, *, max_attempts: int = 5):
+    """
+    Invoke an LLM with our own rate-limit retry logic.
+
+    The OpenAI client's built-in retries use short exponential backoff (0.5s,
+    1s, 2s...) which actually makes 429 cascading WORSE on a 3 RPM free tier
+    because each retry counts as a request.  We override with longer waits
+    (25-60s) so the RPM window genuinely clears between attempts.
+    """
+    for attempt in range(max_attempts):
+        try:
+            return structured_llm.invoke(messages)
+        except Exception as e:
+            err = str(e).lower()
+            is_rate_limit = "429" in str(e) or "rate" in err or "rate_limit" in err
+            if is_rate_limit and attempt < max_attempts - 1:
+                wait = 25 + attempt * 15          # 25s, 40s, 55s, 70s
+                logger.warning(
+                    f"Rate-limited (attempt {attempt + 1}/{max_attempts}). "
+                    f"Waiting {wait}s for RPM window to clear..."
+                )
+                _time.sleep(wait)
+            else:
+                raise
+
+
 # ── Core pipeline functions ──────────────────────────────────────────────────
+
+
+def _build_multi_column_condition(terms: List[str]) -> str:
+    """
+    Build a SQL condition that searches for expanded terms across
+    specialties, procedure, capability, and equipment columns.
+    """
+    per_term = []
+    for t in terms:
+        cols = [
+            f"specialties ILIKE '%{t}%'",
+            f"procedure ILIKE '%{t}%'",
+            f"capability ILIKE '%{t}%'",
+            f"equipment ILIKE '%{t}%'",
+        ]
+        per_term.append("(" + " OR ".join(cols) + ")")
+
+    if len(per_term) == 1:
+        return per_term[0]
+    return "(" + " OR ".join(per_term) + ")"
+
+
+def _validate_and_fix_sql(
+    analysis: AnalysisOutput, expanded_terms: List[str]
+) -> AnalysisOutput:
+    """
+    Post-validation: ensure generated SQL uses expanded_terms instead of
+    the user's raw natural-language phrases.
+
+    A common LLM failure mode is to use the user's words (e.g. "pediatric care")
+    in ILIKE patterns instead of the canonical expanded term ("pediatrics").
+    This function detects and fixes that.
+
+    Also ensures multi-column search (specialties + procedure + capability + equipment).
+    """
+    if not expanded_terms:
+        return analysis
+
+    import re as _re
+
+    def _fix_sql(sql: str) -> str:
+        sql_lower = sql.lower()
+        # Check if ANY expanded term appears in the SQL (case-insensitive)
+        has_expanded = any(t.lower() in sql_lower for t in expanded_terms)
+
+        if has_expanded:
+            # Even if expanded terms are present, ensure multi-column search.
+            # Replace single-column patterns like "specialties ILIKE '%term%'"
+            # with multi-column patterns.
+            for t in expanded_terms:
+                single_col_pattern = _re.compile(
+                    rf"specialties\s+ILIKE\s+'%{_re.escape(t)}%'",
+                    _re.IGNORECASE,
+                )
+                if single_col_pattern.search(sql):
+                    multi_col = (
+                        f"(specialties ILIKE '%{t}%' OR procedure ILIKE '%{t}%' "
+                        f"OR capability ILIKE '%{t}%' OR equipment ILIKE '%{t}%')"
+                    )
+                    sql = single_col_pattern.sub(multi_col, sql)
+                    logger.info(f"SQL fix: expanded single-column to multi-column search for '{t}'")
+            return sql
+
+        # SQL doesn't use any expanded term — inject multi-column condition.
+        multi_col_condition = _build_multi_column_condition(expanded_terms)
+
+        # Try to find and replace the bad ILIKE pattern.
+        bad_pattern = _re.compile(
+            r"specialties\s+ILIKE\s+'%[^']+%'", _re.IGNORECASE
+        )
+        match = bad_pattern.search(sql)
+        if match:
+            fixed = bad_pattern.sub(multi_col_condition, sql, count=1)
+            logger.warning(
+                f"SQL fix: replaced '{match.group()}' → multi-column condition"
+            )
+            return fixed
+
+        # Check for bad patterns in procedure/capability/equipment columns too
+        for col in ["procedure", "capability", "equipment"]:
+            bad_col_pattern = _re.compile(
+                rf"{col}\s+ILIKE\s+'%[^']+%'", _re.IGNORECASE
+            )
+            match = bad_col_pattern.search(sql)
+            if match:
+                fixed = bad_col_pattern.sub(multi_col_condition, sql, count=1)
+                logger.warning(
+                    f"SQL fix: replaced '{match.group()}' → multi-column condition"
+                )
+                return fixed
+
+        # If no ILIKE pattern found at all, add the condition to WHERE clause
+        if "WHERE" in sql.upper():
+            fixed = _re.sub(
+                r"(WHERE\s+)",
+                rf"\1{multi_col_condition} AND ",
+                sql,
+                count=1,
+                flags=_re.IGNORECASE,
+            )
+            logger.warning(f"SQL fix: injected multi-column condition into WHERE clause")
+            return fixed
+
+        return sql
+
+    analysis.primary_sql = _fix_sql(analysis.primary_sql)
+    analysis.detail_sql = _fix_sql(analysis.detail_sql)
+    analysis.distribution_sql = _fix_sql(analysis.distribution_sql)
+    return analysis
 
 
 def _call1_analyze(question: str, expanded_terms: List[str]) -> AnalysisOutput:
@@ -182,18 +339,24 @@ def _call1_analyze(question: str, expanded_terms: List[str]) -> AnalysisOutput:
     user_prompt = f"""User question: {question}
 
 Expanded medical terms (use these for specialty filtering): [{expanded_str}]
+IMPORTANT: Use ONLY the expanded terms above in ILIKE patterns, NOT the user's raw words.
+For example, use '%pediatrics%' not '%pediatric care%'.
 
 Generate the three SQL queries and optional vector search terms."""
 
     llm = get_llm()
     structured_llm = llm.with_structured_output(AnalysisOutput)
 
-    result: AnalysisOutput = structured_llm.invoke(
+    result: AnalysisOutput = _invoke_with_retry(
+        structured_llm,
         [
             {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT.format(schema=schema)},
             {"role": "user", "content": user_prompt},
-        ]
+        ],
     )
+
+    # Post-validate: ensure expanded terms are actually used in SQL
+    result = _validate_and_fix_sql(result, expanded_terms)
 
     logger.info(
         f"Call 1 done | intent={result.intent} | "
@@ -203,13 +366,119 @@ Generate the three SQL queries and optional vector search terms."""
     return result
 
 
-def _execute_all(analysis: AnalysisOutput) -> Dict[str, Any]:
-    """Execute SQL, vector search, and inject WHO context. (0 LLM calls, 0-1 embedding)"""
+def _build_fallback_queries(
+    expanded_terms: List[str], original_question: str
+) -> Optional[Dict[str, str]]:
+    """
+    Build reliable fallback SQL queries directly from expanded terms.
+
+    This bypasses LLM-generated SQL entirely, using a simple template
+    that we KNOW matches the data format.
+    """
+    if not expanded_terms:
+        return None
+
+    multi_col_condition = _build_multi_column_condition(expanded_terms)
+
+    # Extract facility type from the question
+    q = original_question.lower()
+    type_filter = ""
+    for ftype in ["hospital", "clinic", "pharmacy", "doctor", "dentist"]:
+        if ftype in q:
+            type_filter = f" AND facilityTypeId = '{ftype}'"
+            break
+
+    # Extract region from the question
+    region_filter = ""
+    regions = [
+        "Greater Accra", "Ashanti", "Western", "Central", "Eastern",
+        "Volta", "Northern", "Upper East", "Upper West", "Bono",
+        "Bono East", "Ahafo", "Oti", "Savannah", "Western North", "North East",
+    ]
+    for region in regions:
+        if region.lower() in q:
+            region_filter = f" AND (address_stateOrRegion ILIKE '%{region}%')"
+            break
+
+    base_where = f"WHERE {multi_col_condition}{type_filter}{region_filter}"
+
+    return {
+        "primary": (
+            f"SELECT COUNT(DISTINCT pk_unique_id) AS count FROM facilities {base_where}"
+        ),
+        "detail": (
+            f"SELECT DISTINCT name, address_city, address_stateOrRegion, "
+            f"specialties, facilityTypeId FROM facilities {base_where} "
+            f"ORDER BY address_stateOrRegion LIMIT 50"
+        ),
+        "distribution": (
+            f"SELECT address_stateOrRegion AS region, COUNT(DISTINCT pk_unique_id) AS count "
+            f"FROM facilities {base_where} "
+            f"GROUP BY address_stateOrRegion ORDER BY count DESC"
+        ),
+    }
+
+
+def _execute_all(
+    analysis: AnalysisOutput,
+    expanded_terms: Optional[List[str]] = None,
+    original_question: str = "",
+) -> Dict[str, Any]:
+    """Execute SQL, vector search, and inject WHO context. (0 LLM calls, 0-1 embedding)
+
+    If the LLM-generated primary SQL returns 0 rows but expanded_terms are available,
+    automatically falls back to a reliable direct query.
+    """
 
     # ── Run SQL queries ──────────────────────────────────────────────────
     primary = execute_sql(analysis.primary_sql)
     detail = execute_sql(analysis.detail_sql)
     distribution = execute_sql(analysis.distribution_sql)
+
+    # ── Fallback: if LLM SQL returned 0 rows, try direct query ───────────
+    used_fallback = False
+    if expanded_terms and primary["success"]:
+        # Check if primary returned a count of 0
+        primary_count = 0
+        if primary["rows"]:
+            first_row = primary["rows"][0]
+            for val in first_row.values():
+                try:
+                    primary_count = int(val)
+                    break
+                except (ValueError, TypeError):
+                    pass
+
+        if primary_count == 0 and detail["row_count"] == 0:
+            logger.warning(
+                "LLM-generated SQL returned 0 results despite having expanded terms. "
+                "Running fallback queries..."
+            )
+            fallback = _build_fallback_queries(expanded_terms, original_question)
+            if fallback:
+                fb_primary = execute_sql(fallback["primary"])
+                fb_detail = execute_sql(fallback["detail"])
+                fb_distribution = execute_sql(fallback["distribution"])
+
+                # Check if fallback found results
+                fb_count = 0
+                if fb_primary["rows"]:
+                    for val in fb_primary["rows"][0].values():
+                        try:
+                            fb_count = int(val)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+
+                if fb_count > 0:
+                    logger.info(
+                        f"Fallback query found {fb_count} results! "
+                        f"Using fallback results instead."
+                    )
+                    primary = fb_primary
+                    detail = fb_detail
+                    distribution = fb_distribution
+                    used_fallback = True
 
     sql_results = {
         "success": primary["success"],
@@ -228,7 +497,7 @@ def _execute_all(analysis: AnalysisOutput) -> Dict[str, Any]:
             "row_count": distribution["row_count"],
             "sql": distribution["sql"],
         },
-        "explanation": analysis.explanation,
+        "explanation": analysis.explanation + (" [fallback query used]" if used_fallback else ""),
         "error": primary.get("error"),
     }
 
@@ -310,11 +579,12 @@ def _call2_synthesize(
     llm = get_llm(temperature=0.2)
     structured_llm = llm.with_structured_output(SynthesisOutput)
 
-    result: SynthesisOutput = structured_llm.invoke(
+    result: SynthesisOutput = _invoke_with_retry(
+        structured_llm,
         [
             {"role": "system", "content": system},
             {"role": "user", "content": evidence},
-        ]
+        ],
     )
 
     logger.info(
@@ -371,7 +641,7 @@ def run_query(question: str) -> Dict[str, Any]:
     analysis = _call1_analyze(question, expanded_terms)
 
     # ── Execute: SQL + vector + context (no LLM) ────────────────────────
-    results = _execute_all(analysis)
+    results = _execute_all(analysis, expanded_terms=expanded_terms, original_question=question)
 
     # ── Call 2: Synthesize answer ────────────────────────────────────────
     synthesis = _call2_synthesize(

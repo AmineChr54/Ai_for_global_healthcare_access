@@ -104,13 +104,15 @@ def compute_medical_deserts(facilities, radius_km=50):
     return deserts
 
 
-def compute_coverage_grid(facilities, step=0.25, radius_km=50):
-    """Grid of coverage scores across Ghana."""
+def compute_coverage_grid(facilities, step=0.1, radius_km=50):
+    """Grid of coverage scores across Ghana (denser grid for seamless hex map)."""
     hospital_coords = [
         (f["lat"], f["lon"])
         for f in facilities
         if f["type"] in ("hospital", "clinic") and f["orgType"] == "facility"
     ]
+    # Pre-compute bounding-box threshold (degrees) to skip distant facilities fast
+    box_deg = radius_km / 110.0 + 0.05  # rough degree equiv + small margin
     grid = []
     lat_min, lat_max = 4.5, 11.5
     lon_min, lon_max = -3.5, 1.5
@@ -118,9 +120,12 @@ def compute_coverage_grid(facilities, step=0.25, radius_km=50):
     while lat <= lat_max:
         lon = lon_min
         while lon <= lon_max:
+            # Bbox pre-filter before expensive haversine
             count = sum(
                 1 for h in hospital_coords
-                if haversine_km(lat, lon, h[0], h[1]) <= radius_km
+                if abs(lat - h[0]) <= box_deg
+                and abs(lon - h[1]) <= box_deg
+                and haversine_km(lat, lon, h[0], h[1]) <= radius_km
             )
             index = min(count / 10.0, 1.0)  # Normalize: 10+ facilities = 1.0
             grid.append({
