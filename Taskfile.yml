@@ -1,0 +1,44 @@
+version: "3"
+
+vars:
+  VENV_DIR: .venv
+  # Windows paths - use forward slashes for Task compatibility
+  VENV_PYTHON: '{{.VENV_DIR}}/Scripts/python.exe'
+  VENV_PIP: '{{.VENV_DIR}}/Scripts/pip.exe'
+  VENV_UVICORN: '{{.VENV_DIR}}/Scripts/uvicorn.exe'
+
+tasks:
+  dev:
+    desc: Run frontend and backend dev servers in parallel
+    deps:
+      - dev:frontend
+      - dev:backend
+      - dev:map
+
+  dev:frontend:
+    desc: Run Next.js frontend dev server
+    dir: frontend
+    cmds:
+      - npm run dev
+
+  dev:map:
+    desc: Run Next.js map dev server
+    dir: map
+    cmds:
+      - npm run dev
+
+  dev:backend:
+    desc: Run FastAPI backend server with hot reload
+    cmds:
+      - '{{.VENV_UVICORN}} backend.server:app --host 0.0.0.0 --port 8000 --reload'
+
+  stop:
+    desc: Stop all running dev servers (frontend and backend)
+    cmds:
+      - cmd: powershell -Command "Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'uvicorn|node' -and $_.CommandLine -match 'backend.server|next dev' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - cmd: powershell -Command "Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+        ignore_error: true
+      - cmd: powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+        ignore_error: true
+      - echo "All dev servers stopped."

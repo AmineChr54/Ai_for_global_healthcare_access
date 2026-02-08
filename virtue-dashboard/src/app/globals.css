@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg-base: #05060c;
+  --bg-panel: rgba(15, 17, 26, 0.8);
+  --bg-card: rgba(18, 21, 33, 0.72);
+  --text-primary: #f5f7ff;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --border-subtle: rgba(255, 255, 255, 0.12);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html.light {
+  color-scheme: light;
+  --bg-base: #f7f8fb;
+  --bg-panel: rgba(255, 255, 255, 0.85);
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --text-primary: #0f111a;
+  --text-muted: rgba(15, 17, 26, 0.6);
+  --border-subtle: rgba(15, 17, 26, 0.12);
+}
+
+body {
+  @apply font-sans antialiased;
+  color: var(--text-primary);
+  background: radial-gradient(circle at top, rgba(116, 192, 255, 0.12), transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(199, 125, 255, 0.12), transparent 40%),
+    var(--bg-base);
+}
+
+.blur-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(20px);
+}
+
+.glow-border {
+  position: relative;
+}
+
+.glow-border::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, rgba(47, 218, 189, 0.5), rgba(116, 192, 255, 0.5));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 8px rgba(116, 192, 255, 0.4);
+  }
+}
