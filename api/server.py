@@ -29,6 +29,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from api.schemas import MapFilters, QueryRequest, QueryResponse
+from api.crud_router import router as crud_router
+from api.idp_router import router as idp_router
 from src.graph_lite import initialize_data, run_query
 
 # Configure logging
@@ -74,6 +76,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount CRUD router for healthsync-app
+app.include_router(crud_router)
+
+# Mount IDP (Intelligent Document Parsing) router
+app.include_router(idp_router)
 
 
 # ── Helper Functions ────────────────────────────────────────────────────────

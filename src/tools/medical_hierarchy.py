@@ -8,7 +8,11 @@ Used by the Query Planner to expand terms like "heart surgery" →
 
 from __future__ import annotations
 
-from typing import Dict, List, Union
+import logging
+from dataclasses import dataclass, field as dc_field
+from typing import Dict, List, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 # ── Hierarchy: Level 0 → Level 1 → Level 2 ─────────────────────────────────
 MEDICAL_HIERARCHY: Dict[str, Union[Dict, List]] = {
@@ -337,45 +341,160 @@ def _normalize_query(query: str) -> str:
     return q
 
 
+# ── Trace dataclass for IDP demo ─────────────────────────────────────────────
+
+
+@dataclass
+class TermMapping:
+    """One mapping trace entry: input_term → matched_key → specialties."""
+
+    input_term: str
+    matched_key: str
+    match_type: str  # "exact" | "stem" | "fuzzy"
+    confidence: float  # 0.0 – 1.0
+    mapped_specialties: List[str] = dc_field(default_factory=list)
+
+
+# Pre-sorted term keys (longest first) for consistent matching order.
+_SORTED_TERM_KEYS = sorted(TERM_TO_SPECIALTY.keys(), key=len, reverse=True)
+
+
+def _stem_query(query_lower: str) -> str:
+    """Simple English suffix stripping for plural → singular."""
+    words = query_lower.split()
+    stemmed: List[str] = []
+    for w in words:
+        if w.endswith("ies") and len(w) > 4:
+            stemmed.append(w[:-3] + "y")  # surgeries → surgery
+        elif w.endswith("es") and len(w) > 3:
+            stemmed.append(w[:-2])
+        elif w.endswith("s") and len(w) > 3 and not w.endswith("ss"):
+            stemmed.append(w[:-1])
+        stemmed.append(w)
+    return " ".join(stemmed)
+
+
+def _fuzzy_match_terms(query_lower: str, threshold: int = 78) -> List[TermMapping]:
+    """Use rapidfuzz to fuzzy-match query words against TERM_TO_SPECIALTY keys.
+
+    Returns TermMapping entries for each fuzzy hit above *threshold*.
+    """
+    try:
+        from rapidfuzz import fuzz, process
+    except ImportError:
+        logger.debug("rapidfuzz not installed — skipping fuzzy matching")
+        return []
+
+    mappings: List[TermMapping] = []
+    already_mapped: set = set()
+
+    # Try the full query first
+    match = process.extractOne(query_lower, _SORTED_TERM_KEYS, scorer=fuzz.partial_ratio)
+    if match and match[1] >= threshold:
+        key = match[0]
+        specs = TERM_TO_SPECIALTY[key]
+        mappings.append(TermMapping(
+            input_term=query_lower,
+            matched_key=key,
+            match_type="fuzzy",
+            confidence=round(match[1] / 100.0, 2),
+            mapped_specialties=list(specs),
+        ))
+        already_mapped.update(specs)
+
+    # Also try individual words / bigrams for multi-word queries
+    words = query_lower.split()
+    chunks = list(words)
+    for i in range(len(words) - 1):
+        chunks.append(f"{words[i]} {words[i + 1]}")
+
+    for chunk in chunks:
+        if len(chunk) < 3:
+            continue
+        match = process.extractOne(chunk, _SORTED_TERM_KEYS, scorer=fuzz.ratio)
+        if match and match[1] >= threshold:
+            key = match[0]
+            specs = TERM_TO_SPECIALTY[key]
+            new_specs = [s for s in specs if s not in already_mapped]
+            if new_specs:
+                mappings.append(TermMapping(
+                    input_term=chunk,
+                    matched_key=key,
+                    match_type="fuzzy",
+                    confidence=round(match[1] / 100.0, 2),
+                    mapped_specialties=new_specs,
+                ))
+                already_mapped.update(new_specs)
+
+    return mappings
+
+
 def expand_medical_terms(query: str) -> List[str]:
     """Expand user terms to canonical specialty names found in the dataset.
 
     Uses multi-pass matching:
     1. Exact substring match (term found in query)
-    2. Longest-match-first ordering to prefer specific terms
+    2. Stemmed substring match
+    3. Fuzzy match via rapidfuzz (if installed)
+    """
+    _, specialties = expand_medical_terms_with_trace(query)
+    return specialties
+
+
+def expand_medical_terms_with_trace(query: str) -> tuple[List[TermMapping], List[str]]:
+    """Same as expand_medical_terms but also returns the mapping trace.
+
+    Returns:
+        (trace, specialties) — trace is a list of TermMapping objects
+        showing how each input fragment was mapped to canonical specialties.
     """
     query_lower = _normalize_query(query)
     matched: set = set()
+    trace: List[TermMapping] = []
 
-    # Sort terms by length descending so longer (more specific) matches take priority.
-    # This ensures "cardiovascular surgery" matches before "surgery".
-    sorted_terms = sorted(TERM_TO_SPECIALTY.keys(), key=len, reverse=True)
-
-    for term in sorted_terms:
+    # ── Pass 1: exact substring match (longest first) ────────────────────
+    for term in _SORTED_TERM_KEYS:
         if term.lower() in query_lower:
-            matched.update(TERM_TO_SPECIALTY[term])
+            specs = TERM_TO_SPECIALTY[term]
+            new_specs = [s for s in specs if s not in matched]
+            if new_specs:
+                trace.append(TermMapping(
+                    input_term=query_lower,
+                    matched_key=term,
+                    match_type="exact",
+                    confidence=1.0,
+                    mapped_specialties=new_specs,
+                ))
+                matched.update(specs)
 
-    # If no match found, try fuzzy approaches:
-    # 1. Strip common suffixes from query words and retry
+    # ── Pass 2: stemmed substring match ──────────────────────────────────
     if not matched:
-        words = query_lower.split()
-        stemmed_words = []
-        for w in words:
-            # Simple suffix stripping for common English plurals
-            if w.endswith("ies") and len(w) > 4:
-                stemmed_words.append(w[:-3] + "y")  # surgeries → surgery
-            elif w.endswith("es") and len(w) > 3:
-                stemmed_words.append(w[:-2])  # processes → process
-            elif w.endswith("s") and len(w) > 3 and not w.endswith("ss"):
-                stemmed_words.append(w[:-1])  # hospitals → hospital
-            stemmed_words.append(w)  # keep original too
-
-        stemmed_query = " ".join(stemmed_words)
-        for term in sorted_terms:
+        stemmed_query = _stem_query(query_lower)
+        for term in _SORTED_TERM_KEYS:
             if term.lower() in stemmed_query:
-                matched.update(TERM_TO_SPECIALTY[term])
+                specs = TERM_TO_SPECIALTY[term]
+                new_specs = [s for s in specs if s not in matched]
+                if new_specs:
+                    trace.append(TermMapping(
+                        input_term=query_lower,
+                        matched_key=term,
+                        match_type="stem",
+                        confidence=0.9,
+                        mapped_specialties=new_specs,
+                    ))
+                    matched.update(specs)
 
-    return sorted(matched)
+    # ── Pass 3: fuzzy match via rapidfuzz ────────────────────────────────
+    if not matched:
+        fuzzy_mappings = _fuzzy_match_terms(query_lower)
+        for fm in fuzzy_mappings:
+            new_specs = [s for s in fm.mapped_specialties if s not in matched]
+            if new_specs:
+                fm.mapped_specialties = new_specs
+                trace.append(fm)
+                matched.update(new_specs)
+
+    return trace, sorted(matched)
 
 
 def get_all_specialties() -> List[str]:

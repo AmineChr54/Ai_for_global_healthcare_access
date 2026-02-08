@@ -79,6 +79,30 @@ def init_db(conn, db_url: str | None = None) -> None:
             dtype = "REAL" if col == "reliability_score" else "TEXT"
             conn.execute(f"ALTER TABLE organizations ADD COLUMN {col} {dtype}")
             conn.commit()
+    # Migration: add idp_status and field_confidences for healthsync-app IDP workflow
+    for col in ("idp_status", "field_confidences"):
+        if col not in existing_cols:
+            conn.execute(f"ALTER TABLE organizations ADD COLUMN {col} TEXT")
+            conn.commit()
+    # Ensure activity_logs table exists
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'"
+    )
+    if cur.fetchone() is None:
+        conn.execute(
+            """CREATE TABLE activity_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                details TEXT,
+                region TEXT,
+                organization_id TEXT REFERENCES organizations(id),
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )"""
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at)")
+        conn.commit()
 
 
 def _json_list(val) -> str:

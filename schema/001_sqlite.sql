@@ -93,6 +93,19 @@ CREATE TABLE IF NOT EXISTS organization_affiliations (
 
 -- No organization_embeddings in SQLite; use LanceDB/FAISS keyed by organization_id.
 
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    details TEXT,
+    region TEXT,
+    organization_id TEXT REFERENCES organizations(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);
+
 CREATE TABLE IF NOT EXISTS processed_rows (
     id TEXT PRIMARY KEY,
     source_url TEXT NOT NULL,

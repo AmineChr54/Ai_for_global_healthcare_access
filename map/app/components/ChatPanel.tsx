@@ -9,6 +9,9 @@ const SUGGESTIONS = [
   "Where are the largest cold spots for cataract surgery within 50km?",
   "Which facilities claim ICU but list no oxygen?",
   "Show facilities offering pediatric care in Ashanti.",
+  "Plan deployment for 5 volunteer cardiologists next quarter",
+  "Where should we send 3 ophthalmologists for maximum impact?",
+  "Optimize placement of 4 pediatricians across underserved regions",
 ];
 
 interface Props {
@@ -230,19 +233,21 @@ export default function ChatPanel({
         </div>
       </div>
 
-      {/* Suggestions (always visible at top) */}
-      <div className="px-4 pb-3 space-y-2">
-        {SUGGESTIONS.map((q) => (
-          <button
-            key={q}
-            onClick={() => sendQuery(q)}
-            disabled={loading}
-            className="w-full text-left text-[13px] leading-snug px-3.5 py-2.5 rounded-xl border border-[#1c2a3a] text-[#8b97a8] hover:text-white hover:border-[#2dd4bf]/40 hover:bg-[#2dd4bf]/5 transition-all duration-200 disabled:opacity-40"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
+      {/* Suggestions (visible only before first interaction) */}
+      {messages.length === 0 && (
+        <div className="px-4 pb-3 space-y-2">
+          {SUGGESTIONS.map((q) => (
+            <button
+              key={q}
+              onClick={() => sendQuery(q)}
+              disabled={loading}
+              className="w-full text-left text-[13px] leading-snug px-3.5 py-2.5 rounded-xl border border-[#1c2a3a] text-[#8b97a8] hover:text-white hover:border-[#2dd4bf]/40 hover:bg-[#2dd4bf]/5 transition-all duration-200 disabled:opacity-40"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Divider */}
       <div className="mx-4 border-t border-[#1c2a3a]" />

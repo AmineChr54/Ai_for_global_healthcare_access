@@ -30,6 +30,7 @@ from src.data.ghana_context import (
     WHO_GUIDELINES,
 )
 from src.llm import get_llm
+from src.planning.engine import parse_plan_request, run_plan_query
 from src.tools.medical_hierarchy import expand_medical_terms
 from src.tools.sql_executor import execute_sql, get_table_schema
 
@@ -623,6 +624,12 @@ def run_query(question: str) -> Dict[str, Any]:
         sql_results, expanded_terms, facility_names
     """
     logger.info(f"[lite] Processing: {question}")
+
+    # ── Check for planning/deployment intent (0 LLM calls) ──────────────
+    plan_params = parse_plan_request(question)
+    if plan_params:
+        logger.info("[lite] Routing to planning engine")
+        return run_plan_query(question, plan_params)
 
     # ── Pre-processing (pure Python, no LLM) ────────────────────────────
     expanded_terms = expand_medical_terms(question)
