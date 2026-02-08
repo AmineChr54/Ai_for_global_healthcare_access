@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { Facility, ChatMessage } from "../page";
+import type { Facility, ChatMessage } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Props {
   messages: ChatMessage[];
@@ -79,7 +79,14 @@ export default function ChatPanel({
         body: JSON.stringify({ question }),
       });
 
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("Rate limit reached. Please wait ~30 seconds and try again.");
+        }
+        const errBody = await res.json().catch(() => null);
+        const detail = errBody?.detail || `API error: ${res.status}`;
+        throw new Error(detail);
+      }
 
       const data = await res.json();
 

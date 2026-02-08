@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet.heat";
-import type { Facility, Analysis, LayerState } from "../page";
+import type { Facility, Analysis, LayerState } from "@/types";
 
 // Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;

@@ -12,10 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.config import MAX_QUALITY_ITERATIONS, OPENAI_API_KEY, OPENAI_MODEL
+from src.config import MAX_QUALITY_ITERATIONS
+from src.llm import get_llm
 from src.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -79,8 +79,7 @@ def check_quality(state: AgentState) -> Dict[str, Any]:
             "iteration": iteration + 1,
         }
 
-    llm = ChatOpenAI(model=OPENAI_MODEL, api_key=OPENAI_API_KEY, temperature=0)
-    structured_llm = llm.with_structured_output(QualityOutput)
+    structured_llm = get_llm().with_structured_output(QualityOutput)
 
     result: QualityOutput = structured_llm.invoke(
         [

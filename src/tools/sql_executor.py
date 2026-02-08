@@ -1,22 +1,19 @@
 """
-SQL Executor — DuckDB in-memory for local dev, designed to swap to PostgreSQL.
+SQL Executor — DuckDB in-memory database.
 
-Uses in-memory DuckDB (no file lock!) so multiple processes (CLI + Streamlit)
-can run simultaneously. 987 rows loads from CSV in <100ms — no need to persist.
-
-When your teammate's PostgreSQL is ready, set USE_MOCK_DB=false and provide
-DATABASE_URL in .env — the executor will switch automatically.
+Uses in-memory DuckDB (no file lock!) so multiple processes can run
+simultaneously. 987 rows loads from CSV in <100ms — no need to persist.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import duckdb
 
-from src.config import DATASET_CSV, USE_MOCK_DB
+from src.config import DATASET_CSV
 
 logger = logging.getLogger(__name__)
 
@@ -142,9 +139,3 @@ def execute_sql(sql: str) -> Dict[str, Any]:
             "sql": sql,
             "error": str(e),
         }
-
-
-def get_sample_rows(n: int = 3) -> List[Dict[str, Any]]:
-    """Return n sample rows for context."""
-    result = execute_sql(f"SELECT * FROM facilities LIMIT {n}")
-    return result["rows"] if result["success"] else []

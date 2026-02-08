@@ -14,10 +14,9 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.config import OPENAI_API_KEY, OPENAI_MODEL
+from src.llm import get_llm
 from src.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -156,8 +155,7 @@ def synthesize_response(state: AgentState) -> Dict[str, Any]:
 
     evidence = "\n\n".join(sections)
 
-    llm = ChatOpenAI(model=OPENAI_MODEL, api_key=OPENAI_API_KEY, temperature=0.2)
-    structured_llm = llm.with_structured_output(SynthesizerOutput)
+    structured_llm = get_llm(temperature=0.2).with_structured_output(SynthesizerOutput)
 
     result: SynthesizerOutput = structured_llm.invoke(
         [

@@ -10,21 +10,21 @@ Run: python scripts/prepare_map_data.py
 
 import csv
 import json
-import math
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.data.ghana_context import (
+    GHANA_HEALTH_STATS,
+    REGION_POPULATION,
+    WHO_GUIDELINES,
+)
 from src.tools.geocoding import GHANA_CITIES, GHANA_REGIONS, geocode, haversine_km
-from src.nodes.external_data_agent import GHANA_CONTEXT
 
 CSV_PATH = PROJECT_ROOT / "ghana_dataset" / "Virtue Foundation Ghana v0.3 - Sheet1.csv"
 OUT_DIR = PROJECT_ROOT / "map" / "public" / "data"
-
-REGION_POPULATION = GHANA_CONTEXT["population"]["regions"]
-WHO = GHANA_CONTEXT["who_guidelines"]
 
 
 def parse_json_field(raw):
@@ -227,8 +227,8 @@ def main():
         "regionStats": region_stats,
         "specialtyDistribution": spec_dist,
         "regionPopulation": REGION_POPULATION,
-        "whoGuidelines": WHO,
-        "ghanaHealthStats": GHANA_CONTEXT["ghana_health_stats"],
+        "whoGuidelines": WHO_GUIDELINES,
+        "ghanaHealthStats": GHANA_HEALTH_STATS,
     }
     with open(OUT_DIR / "analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis, f, ensure_ascii=False, indent=None)

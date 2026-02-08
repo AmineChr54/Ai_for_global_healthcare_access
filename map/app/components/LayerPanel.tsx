@@ -1,6 +1,6 @@
 "use client";
 
-import type { LayerState, Analysis } from "../page";
+import type { LayerState, Analysis } from "@/types";
 
 interface Props {
   layers: LayerState;

@@ -21,10 +21,9 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.config import OPENAI_API_KEY, OPENAI_MODEL
+from src.llm import get_llm
 from src.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -160,8 +159,7 @@ def medical_reasoning(state: AgentState) -> Dict[str, Any]:
     if is_full:
         # ── Full medical reasoning ──────────────────────────────────────
         logger.info("Running FULL medical reasoning")
-        llm = ChatOpenAI(model=OPENAI_MODEL, api_key=OPENAI_API_KEY, temperature=0.1)
-        structured_llm = llm.with_structured_output(FullReasoningOutput)
+        structured_llm = get_llm(temperature=0.1).with_structured_output(FullReasoningOutput)
 
         result: FullReasoningOutput = structured_llm.invoke(
             [
@@ -194,8 +192,7 @@ def medical_reasoning(state: AgentState) -> Dict[str, Any]:
     else:
         # ── Lightweight reasoning (basic_lookup, geospatial, etc.) ──────
         logger.info("Running LIGHTWEIGHT medical reasoning (context + data quality)")
-        llm = ChatOpenAI(model=OPENAI_MODEL, api_key=OPENAI_API_KEY, temperature=0.1)
-        structured_llm = llm.with_structured_output(LightweightReasoningOutput)
+        structured_llm = get_llm(temperature=0.1).with_structured_output(LightweightReasoningOutput)
 
         result: LightweightReasoningOutput = structured_llm.invoke(
             [

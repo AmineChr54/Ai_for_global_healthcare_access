@@ -14,12 +14,11 @@ to produce the impactful, specific answers that win hackathons.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.config import OPENAI_API_KEY, OPENAI_MODEL
+from src.llm import get_llm
 from src.state import AgentState
 from src.tools.sql_executor import execute_sql, get_table_schema
 
@@ -101,8 +100,6 @@ Original: {sql}
 
 Rules: JSON arrays are VARCHAR (use LIKE), numeric cols are VARCHAR (use CAST), some nulls are string 'null'."""
 
-    from pydantic import BaseModel, Field
-
     class FixedSQL(BaseModel):
         sql: str = Field(description="The corrected SQL query")
 
@@ -135,7 +132,7 @@ def execute_text2sql(state: AgentState) -> Dict[str, Any]:
 
     schema = get_table_schema()
 
-    llm = ChatOpenAI(model=OPENAI_MODEL, api_key=OPENAI_API_KEY, temperature=0)
+    llm = get_llm()
     structured_llm = llm.with_structured_output(SQLTripleOutput)
 
     expanded_str = ", ".join(expanded_terms) if expanded_terms else "none"

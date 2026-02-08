@@ -1,6 +1,6 @@
 "use client";
 
-import type { Facility, Analysis } from "../page";
+import type { Facility, Analysis } from "@/types";
 
 const TYPE_BADGES: Record<string, { label: string; color: string }> = {
   hospital: { label: "Hospitals", color: "bg-blue-100 text-blue-800" },

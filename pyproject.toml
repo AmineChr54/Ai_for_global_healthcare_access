@@ -8,7 +8,6 @@ dependencies = [
     "langgraph>=0.2.0",
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
-    "langchain-community>=0.3.0",
 
     # OpenAI
     "openai>=1.50.0",
@@ -16,24 +15,17 @@ dependencies = [
     # Vector Store
     "faiss-cpu>=1.8.0",
 
-    # Database (DuckDB for local dev, PostgreSQL adapter for production)
+    # Database (DuckDB in-memory)
     "duckdb>=1.1.0",
 
-    # Data Processing
-    "pandas>=2.2.0",
+    # Numeric (required by faiss-cpu)
     "numpy>=1.26.0",
-
-    # Geospatial
-    "geopy>=2.4.0",
 
     # Pydantic
     "pydantic>=2.5.0",
 
     # Environment
     "python-dotenv>=1.0.0",
-
-    # Chat UI
-    "streamlit>=1.40.0",
 
     # API Server
     "fastapi>=0.110.0",

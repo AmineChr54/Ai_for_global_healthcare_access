@@ -15,10 +15,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.config import OPENAI_API_KEY, OPENAI_MODEL
+from src.llm import get_llm
 from src.state import AgentState
 from src.tools.medical_hierarchy import expand_medical_terms, get_all_specialties
 
@@ -97,13 +96,7 @@ def plan_query(state: AgentState) -> Dict[str, Any]:
 
     specialties_str = ", ".join(get_all_specialties())
 
-    llm = ChatOpenAI(
-        model=OPENAI_MODEL,
-        api_key=OPENAI_API_KEY,
-        temperature=0,
-    )
-
-    structured_llm = llm.with_structured_output(PlannerOutput)
+    structured_llm = get_llm().with_structured_output(PlannerOutput)
 
     result: PlannerOutput = structured_llm.invoke(
         [

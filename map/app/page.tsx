@@ -5,67 +5,10 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "./components/Sidebar";
 import LayerPanel from "./components/LayerPanel";
 import ChatPanel from "./components/ChatPanel";
+import type { Facility, Analysis, LayerState, ChatMessage, QueryFilters } from "@/types";
 
 // Dynamic import for Leaflet (no SSR)
 const MapView = dynamic(() => import("./components/MapView"), { ssr: false });
-
-export interface Facility {
-  id: string;
-  uid: string;
-  name: string;
-  lat: number;
-  lon: number;
-  city: string;
-  region: string;
-  type: string;
-  operator: string;
-  specialties: string[];
-  procedures: string[];
-  equipment: string[];
-  capabilities: string[];
-  doctors: number | null;
-  beds: number | null;
-  orgType: string;
-  description: string;
-  website: string;
-}
-
-export interface Analysis {
-  medicalDeserts: { city: string; lat: number; lon: number; nearestHospitalKm: number | null; population: number | null }[];
-  coverageGrid: { lat: number; lon: number; coverageIndex: number; facilityCount: number }[];
-  regionStats: Record<string, any>;
-  specialtyDistribution: Record<string, { total: number; regions: Record<string, number> }>;
-  regionPopulation: Record<string, number>;
-  whoGuidelines: Record<string, number>;
-  ghanaHealthStats: Record<string, any>;
-}
-
-export interface LayerState {
-  showFacilities: boolean;
-  showDeserts: boolean;
-  showCoverage: boolean;
-  showPopulation: boolean;
-  showNgos: boolean;
-  coverageRadius: number;
-  populationThreshold: number;
-}
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  metadata?: {
-    intent?: string;
-    agents?: string[];
-    citations?: any[];
-    elapsed?: number;
-    facilityNames?: string[];
-  };
-}
-
-export interface QueryFilters {
-  specialty?: string;
-  types?: string[];
-}
 
 export default function Home() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -96,15 +39,29 @@ export default function Home() {
     populationThreshold: 50000,
   });
 
+  const [dataError, setDataError] = useState<string | null>(null);
+
   useEffect(() => {
     Promise.all([
-      fetch("/data/facilities.json").then((r) => r.json()),
-      fetch("/data/analysis.json").then((r) => r.json()),
-    ]).then(([facs, ana]) => {
-      setFacilities(facs);
-      setAnalysis(ana);
-      setLoading(false);
-    });
+      fetch("/data/facilities.json").then((r) => {
+        if (!r.ok) throw new Error(`Failed to load facilities.json (${r.status})`);
+        return r.json();
+      }),
+      fetch("/data/analysis.json").then((r) => {
+        if (!r.ok) throw new Error(`Failed to load analysis.json (${r.status})`);
+        return r.json();
+      }),
+    ])
+      .then(([facs, ana]) => {
+        setFacilities(facs);
+        setAnalysis(ana);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Data loading error:", err);
+        setDataError(err.message);
+        setLoading(false);
+      });
   }, []);
 
   // Clear highlights
@@ -146,6 +103,28 @@ export default function Home() {
         <div className="text-center">
           <div className="mb-4 h-12 w-12 mx-auto animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
           <p className="text-lg font-medium text-gray-600">Loading Ghana healthcare data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-lg border border-gray-200">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Data Files Missing</h2>
+          <p className="text-sm text-gray-600 mb-4">{dataError}</p>
+          <div className="bg-gray-900 text-gray-100 rounded-lg p-4 text-left text-xs font-mono">
+            <p className="text-gray-400 mb-1"># Generate the required data files:</p>
+            <p>python scripts/prepare_map_data.py</p>
+            <p className="text-gray-400 mt-3 mb-1"># Then restart the frontend:</p>
+            <p>cd map && npm run dev</p>
+          </div>
+          <p className="text-xs text-gray-400 mt-4">
+            This generates <code className="bg-gray-100 px-1 rounded">facilities.json</code> and{" "}
+            <code className="bg-gray-100 px-1 rounded">analysis.json</code> in <code className="bg-gray-100 px-1 rounded">map/public/data/</code>
+          </p>
         </div>
       </div>
     );
