@@ -40,9 +40,9 @@ yarn-error.log*
 # Data artifacts (generated)
 # ========================
 data/
-*.db
-*.sqlite
-*.sqlite3
+#*.db dirty data upload...
+#*.sqlite
+#*.sqlite3
 
 # ========================
 # IDE & Editors
