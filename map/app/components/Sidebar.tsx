@@ -157,50 +157,143 @@ export default function Sidebar({
 
       {/* Facility inspector */}
       {selectedFacility && (
-        <div className="p-3 border-b border-gray-100 bg-indigo-50">
-          <div className="flex items-start justify-between">
-            <h3 className="text-sm font-bold text-gray-900">{selectedFacility.name}</h3>
-            <button
-              onClick={() => onSelectFacility(null)}
-              className="text-gray-400 hover:text-gray-600 text-xs ml-2"
-            >
-              ✕
-            </button>
+        <div className="border-b border-gray-100 bg-indigo-50/80 overflow-hidden">
+          <div className="p-3 pb-2">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-bold text-gray-900 leading-tight">{selectedFacility.name}</h3>
+              <button
+                onClick={() => onSelectFacility(null)}
+                className="shrink-0 text-gray-400 hover:text-gray-600 text-sm p-0.5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              {selectedFacility.city}{selectedFacility.region ? `, ${selectedFacility.region}` : ""}
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {selectedFacility.type && (
+                <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${TYPE_BADGES[selectedFacility.type]?.color || "bg-gray-100 text-gray-600"}`}>
+                  {selectedFacility.type}
+                </span>
+              )}
+              {selectedFacility.operator && (
+                <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                  {selectedFacility.operator}
+                </span>
+              )}
+              {highlightedNames.has(selectedFacility.name) && (
+                <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                  Chat Result
+                </span>
+              )}
+            </div>
           </div>
-          <p className="text-xs text-gray-600 mt-0.5">
-            {selectedFacility.city}{selectedFacility.region ? `, ${selectedFacility.region}` : ""}
-          </p>
-          {selectedFacility.type && (
-            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${TYPE_BADGES[selectedFacility.type]?.color || "bg-gray-100 text-gray-600"}`}>
-              {selectedFacility.type}
-            </span>
-          )}
-          {highlightedNames.has(selectedFacility.name) && (
-            <span className="inline-block mt-1 ml-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-              Chat Result
-            </span>
-          )}
-          {selectedFacility.specialties.length > 0 && (
-            <div className="mt-2">
-              <span className="text-xs font-semibold text-gray-700">Specialties: </span>
-              <span className="text-xs text-gray-600">{selectedFacility.specialties.join(", ")}</span>
+
+          <div className="px-3 pb-3 max-h-[50vh] overflow-y-auto custom-scrollbar space-y-3 text-xs">
+            {/* Contact */}
+            {(selectedFacility.phone || selectedFacility.email || selectedFacility.website) && (
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-1.5">Contact</h4>
+                <ul className="space-y-1 text-gray-600">
+                  {selectedFacility.phone && (
+                    <li>
+                      <a href={`tel:${selectedFacility.phone}`} className="text-indigo-600 hover:underline truncate block">
+                        📞 {selectedFacility.phone}
+                      </a>
+                    </li>
+                  )}
+                  {selectedFacility.email && (
+                    <li>
+                      <a href={`mailto:${selectedFacility.email}`} className="text-indigo-600 hover:underline truncate block break-all">
+                        ✉️ {selectedFacility.email}
+                      </a>
+                    </li>
+                  )}
+                  {selectedFacility.website && (
+                    <li>
+                      <a
+                        href={selectedFacility.website.startsWith("http") ? selectedFacility.website : `https://${selectedFacility.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:underline truncate block break-all"
+                      >
+                        🔗 {selectedFacility.website}
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {/* Description */}
+            {selectedFacility.description && (
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-1">About</h4>
+                <p className="text-gray-600 leading-relaxed">{selectedFacility.description}</p>
+              </div>
+            )}
+
+            {/* Capacity */}
+            {(selectedFacility.doctors != null || selectedFacility.beds != null) && (
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-1">Capacity</h4>
+                <div className="flex gap-4 text-gray-600">
+                  {selectedFacility.doctors != null && <span>👨‍⚕️ {selectedFacility.doctors} doctors</span>}
+                  {selectedFacility.beds != null && <span>🛏️ {selectedFacility.beds} beds</span>}
+                </div>
+              </div>
+            )}
+
+            {/* Services */}
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-1.5">Services</h4>
+              <div className="space-y-2">
+                {selectedFacility.specialties.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Specialties</span>
+                    <p className="text-gray-600 mt-0.5">{selectedFacility.specialties.join(", ")}</p>
+                  </div>
+                )}
+                {selectedFacility.procedures.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Procedures</span>
+                    <ul className="text-gray-600 mt-0.5 list-disc list-inside space-y-0.5">
+                      {selectedFacility.procedures.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedFacility.equipment.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Equipment</span>
+                    <ul className="text-gray-600 mt-0.5 list-disc list-inside space-y-0.5">
+                      {selectedFacility.equipment.map((e, i) => (
+                        <li key={i}>{e}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedFacility.capabilities.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Capabilities</span>
+                    <ul className="text-gray-600 mt-0.5 list-disc list-inside space-y-0.5">
+                      {selectedFacility.capabilities.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedFacility.specialties.length === 0 &&
+                  selectedFacility.procedures.length === 0 &&
+                  selectedFacility.equipment.length === 0 &&
+                  selectedFacility.capabilities.length === 0 && (
+                    <p className="text-gray-500 italic">No service details listed.</p>
+                  )}
+              </div>
             </div>
-          )}
-          {selectedFacility.procedures.length > 0 && (
-            <div className="mt-1">
-              <span className="text-xs font-semibold text-gray-700">Procedures: </span>
-              <span className="text-xs text-gray-600">{selectedFacility.procedures.slice(0, 5).join("; ")}</span>
-            </div>
-          )}
-          {selectedFacility.equipment.length > 0 && (
-            <div className="mt-1">
-              <span className="text-xs font-semibold text-gray-700">Equipment: </span>
-              <span className="text-xs text-gray-600">{selectedFacility.equipment.slice(0, 5).join("; ")}</span>
-            </div>
-          )}
-          <div className="flex gap-3 mt-2 text-xs text-gray-600">
-            {selectedFacility.doctors && <span>👨‍⚕️ {selectedFacility.doctors} doctors</span>}
-            {selectedFacility.beds && <span>🛏️ {selectedFacility.beds} beds</span>}
           </div>
         </div>
       )}

@@ -150,6 +150,14 @@ export default function MapView({
         f.doctors && `<span style="font-size:11px;color:#8b97a8;">👨‍⚕️ ${f.doctors} doctors</span>`,
         f.beds && `<span style="font-size:11px;color:#8b97a8;">🛏️ ${f.beds} beds</span>`,
       ].filter(Boolean).join(" &middot; ");
+      const contactParts = [
+        f.phone && `📞 ${f.phone}`,
+        f.email && `✉️ ${f.email}`,
+        f.website && `🔗 ${f.website}`,
+      ].filter(Boolean);
+      const contactHtml = contactParts.length
+        ? `<div style="margin-top:6px;font-size:11px;color:#8b97a8;border-top:1px solid #1e293b;padding-top:6px;">${contactParts.join("<br/>")}</div>`
+        : "";
 
       marker.bindPopup(
         `<div style="min-width:220px;">
@@ -160,6 +168,8 @@ export default function MapView({
           ${specHtml}
           ${f.procedures.length ? `<div style="margin-top:4px;font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Procedures:</b> ${f.procedures.slice(0, 3).join("; ")}</div>` : ""}
           ${f.equipment.length ? `<div style="font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Equipment:</b> ${f.equipment.slice(0, 3).join("; ")}</div>` : ""}
+          ${contactHtml}
+          <div style="margin-top:6px;font-size:10px;color:#64748b;">Click marker for full details</div>
         </div>`,
         { maxWidth: 350 }
       );

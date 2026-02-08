@@ -23,6 +23,8 @@ export interface Facility {
   orgType: string;
   description: string;
   website: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface Analysis {

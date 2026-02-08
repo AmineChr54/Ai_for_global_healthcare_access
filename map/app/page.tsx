@@ -93,6 +93,12 @@ export default function Home() {
     }
   }, []);
 
+  // Filterable facility types (others or empty type always shown so "all" really shows all)
+  const FILTERABLE_TYPES = useMemo(
+    () => new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"]),
+    []
+  );
+
   // Filtered facilities
   const filtered = useMemo(() => {
     return facilities.filter((f) => {
@@ -105,7 +111,13 @@ export default function Home() {
       if (selectedSpecialty && !f.specialties.includes(selectedSpecialty))
         return false;
       if (f.orgType === "ngo") return showNgos;
-      if (f.type && !selectedTypes.has(f.type)) return false;
+      // Only filter by type when facility has a filterable type; others/empty always pass
+      if (
+        f.type &&
+        FILTERABLE_TYPES.has(f.type) &&
+        !selectedTypes.has(f.type)
+      )
+        return false;
 
       // Equipment filters
       if (equipmentFilters.size > 0) {

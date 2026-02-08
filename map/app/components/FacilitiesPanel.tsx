@@ -159,7 +159,7 @@ export default function FacilitiesPanel({
               onChange={(e) => onSpecialtyChange(e.target.value)}
               className="text-xs px-3 py-1.5 rounded-lg bg-[#151d2e] border border-[#1c2a3a] text-[#8b97a8] focus:outline-none focus:ring-1 focus:ring-[#2dd4bf]/30 appearance-none cursor-pointer"
             >
-              <option value="">Specialty</option>
+              <option value="">All specialties</option>
               {allSpecialties.map((s) => (
                 <option key={s} value={s}>
                   {s}
