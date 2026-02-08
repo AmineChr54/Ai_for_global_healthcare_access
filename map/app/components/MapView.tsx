@@ -530,40 +530,21 @@ export default function MapView({
         : "";
 
       const specHtml = f.specialties.length
-        ? `<div style="margin-top:4px;font-size:11px;color:#6b7a8d;">${f.specialties.slice(0, 5).join(", ")}</div>`
+        ? `<div style="margin-top:4px;font-size:11px;color:#6b7a8d;">${f.specialties.slice(0, 3).join(", ")}</div>`
         : "";
-      const metaHtml = [
-        f.type &&
-          `<span style="background:#1a2538;padding:1px 6px;border-radius:4px;font-size:11px;color:#8b97a8;">${f.type}</span>`,
-        f.doctors &&
-          `<span style="font-size:11px;color:#8b97a8;">👨‍⚕️ ${f.doctors} doctors</span>`,
-        f.beds &&
-          `<span style="font-size:11px;color:#8b97a8;">🛏️ ${f.beds} beds</span>`,
-      ]
-        .filter(Boolean)
-        .join(" &middot; ");
-      const contactParts = [
-        f.phone && `📞 ${f.phone}`,
-        f.email && `✉️ ${f.email}`,
-        f.website && `🔗 ${f.website}`,
-      ].filter(Boolean);
-      const contactHtml = contactParts.length
-        ? `<div style="margin-top:6px;font-size:11px;color:#8b97a8;border-top:1px solid #1e293b;padding-top:6px;">${contactParts.join("<br/>")}</div>`
+      const typeBadge = f.type
+        ? `<span style="background:#1a2538;padding:1px 6px;border-radius:4px;font-size:11px;color:#8b97a8;">${f.type}</span>`
         : "";
 
       marker.bindPopup(
-        `<div style="min-width:220px;">
+        `<div style="min-width:160px;max-width:240px;">
           ${highlightBadge}
-          <div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#e8edf5;">${f.name}</div>
-          <div style="font-size:12px;color:#6b7a8d;">${f.city}${f.region ? ", " + f.region : ""}</div>
-          ${metaHtml ? `<div style="margin-top:6px;">${metaHtml}</div>` : ""}
+          <div style="font-weight:700;font-size:13px;margin-bottom:2px;color:#e8edf5;">${f.name}</div>
+          <div style="font-size:11px;color:#6b7a8d;">${f.city}${f.region ? ", " + f.region : ""}</div>
+          ${typeBadge ? `<div style="margin-top:4px;">${typeBadge}</div>` : ""}
           ${specHtml}
-          ${f.procedures.length ? `<div style="margin-top:4px;font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Procedures:</b> ${f.procedures.slice(0, 3).join("; ")}</div>` : ""}
-          ${f.equipment.length ? `<div style="font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Equipment:</b> ${f.equipment.slice(0, 3).join("; ")}</div>` : ""}
-          ${contactHtml}
-          <div style="margin-top:6px;font-size:10px;color:#64748b;">Click marker for full details</div>
         </div>`,
-        { maxWidth: 350 }
+        { maxWidth: 260 }
       );
 
       marker.on("click", () => onSelectFacility(f));
@@ -590,10 +571,11 @@ export default function MapView({
     };
   }, [facilities, layers.showFacilities, highlightedNames]);
 
-  // Pan to selected facility
+  // Center map on selected facility without changing zoom
   useEffect(() => {
     if (selectedFacility && mapRef.current) {
-      mapRef.current.setView([selectedFacility.lat, selectedFacility.lon], 12, { animate: true });
+      const map = mapRef.current;
+      map.setView([selectedFacility.lat, selectedFacility.lon], map.getZoom(), { animate: true });
     }
   }, [selectedFacility]);
 

@@ -125,18 +125,23 @@ def load_facilities_from_db(debug: bool = False):
         # Ensure schema exists (creates organizations + related tables if missing)
         init_db(conn, db_url)
         # Read from organizations table directly (no facilities view required)
+        has_reliability = True
         try:
-            columns, rows = _run_query(conn, "SELECT id, canonical_name, organization_type, address_city, address_state_or_region, lat, lon, facility_type_id, operator_type_id, number_doctors, capacity, description, official_website, phone_numbers, email FROM organizations")
-        except Exception as e:
-            print(f"  Warning: could not read organizations table: {e}")
-            if debug or DEBUG:
-                try:
-                    tc, tr = _run_query(conn, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-                    if tr:
-                        print(f"  [debug] Tables in DB: {[r[0] for r in tr]}")
-                except Exception:
-                    pass
-            return []
+            columns, rows = _run_query(conn, "SELECT id, canonical_name, organization_type, address_city, address_state_or_region, lat, lon, facility_type_id, operator_type_id, number_doctors, capacity, description, official_website, phone_numbers, email, reliability_score, reliability_explanation FROM organizations")
+        except Exception:
+            try:
+                columns, rows = _run_query(conn, "SELECT id, canonical_name, organization_type, address_city, address_state_or_region, lat, lon, facility_type_id, operator_type_id, number_doctors, capacity, description, official_website, phone_numbers, email FROM organizations")
+                has_reliability = False
+            except Exception as e:
+                print(f"  Warning: could not read organizations table: {e}")
+                if debug or DEBUG:
+                    try:
+                        tc, tr = _run_query(conn, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                        if tr:
+                            print(f"  [debug] Tables in DB: {[r[0] for r in tr]}")
+                    except Exception:
+                        pass
+                return []
 
         n_rows = len(rows)
         if debug or DEBUG:
@@ -215,6 +220,20 @@ def load_facilities_from_db(debug: bool = False):
             except (TypeError, ValueError):
                 beds = None
 
+            raw_score = row_dict.get("reliability_score") if has_reliability else None
+            reliability_score = None
+            if raw_score is not None:
+                try:
+                    v = float(raw_score)
+                    if 1 <= v <= 10:
+                        reliability_score = round(v, 1)
+                except (TypeError, ValueError):
+                    pass
+
+            reliability_explanation = (row_dict.get("reliability_explanation") or "").strip() or None if has_reliability else None
+            if reliability_explanation == "":
+                reliability_explanation = None
+
             specs = specialties_by_id.get(oid, [])
             facts = facts_by_id.get(oid, {})
             facilities.append({
@@ -238,6 +257,8 @@ def load_facilities_from_db(debug: bool = False):
                 "website": (row_dict.get("official_website") or "").strip() or "",
                 "phone": _str_phone(row_dict.get("phone_numbers")),
                 "email": (row_dict.get("email") or "").strip() or "",
+                "reliabilityScore": reliability_score,
+                "reliabilityExplanation": reliability_explanation,
             })
         if debug or DEBUG:
             print(f"  [debug] Output {len(facilities)} facilities, skipped (no geocode): {skipped_no_geocode}, skipped (bad coords): {skipped_bad_coords}")
@@ -398,21 +419,11 @@ def main():
     spec_dist = compute_specialty_distribution(facilities)
     print(f"  {len(spec_dist)} specialties")
 
-    seen = set()
-    deduped = []
-    for f in facilities:
-        key = (f["name"], f["city"])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(f)
-    if len(facilities) != len(deduped):
-        print(f"  Deduplicated: {len(facilities)} -> {len(deduped)} unique facilities")
-
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(OUT_DIR / "facilities.json", "w", encoding="utf-8") as f:
-        json.dump(deduped, f, ensure_ascii=False, indent=None)
-    print(f"  Wrote facilities.json ({len(deduped)} records)")
+        json.dump(facilities, f, ensure_ascii=False, indent=None)
+    print(f"  Wrote facilities.json ({len(facilities)} records)")
 
     analysis = {
         "medicalDeserts": deserts,

@@ -27,7 +27,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(
-    new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"])
+    new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist", "other"])
   );
   const [showNgos, setShowNgos] = useState(true);
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(
@@ -102,14 +102,14 @@ export default function Home() {
       setSelectedTypes(new Set(filters.types));
     } else {
       setSelectedTypes(
-        new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"])
+        new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist", "other"])
       );
     }
   }, []);
 
-  // Filterable facility types (others or empty type always shown so "all" really shows all)
+  // Filterable facility types; "other" = uncategorized (no type or type not in standard list)
   const FILTERABLE_TYPES = useMemo(
-    () => new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"]),
+    () => new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist", "other"]),
     []
   );
 
@@ -130,13 +130,14 @@ export default function Home() {
       if (selectedSpecialty && !f.specialties.includes(selectedSpecialty))
         return false;
       if (f.orgType === "ngo") return showNgos;
-      // Only filter by type when facility has a filterable type; others/empty always pass
-      if (
-        f.type &&
-        FILTERABLE_TYPES.has(f.type) &&
-        !selectedTypes.has(f.type)
-      )
-        return false;
+      // Standard types: include only if this type is selected
+      const isStandardType = f.type && ["hospital", "clinic", "doctor", "pharmacy", "dentist"].includes(f.type);
+      if (isStandardType) {
+        if (!selectedTypes.has(f.type)) return false;
+      } else {
+        // Uncategorized (no type or other type): include only if "other" is selected
+        if (!selectedTypes.has("other")) return false;
+      }
 
       // Equipment filters
       if (equipmentFilters.size > 0) {
@@ -462,6 +463,8 @@ export default function Home() {
           onClearChatFilter={clearHighlights}
           subFilters={subFilters}
           onSubFiltersChange={setSubFilters}
+          selectedFacility={selectedFacility}
+          onSelectFacility={setSelectedFacility}
         />
       </div>
     </div>

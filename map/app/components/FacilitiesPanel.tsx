@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Facility, Analysis, CategorySubFilters } from "@/types";
 import { EMPTY_SUB_FILTERS } from "@/types";
 
@@ -12,6 +12,9 @@ interface CategoryConfig {
   color: string;
   icon: React.ReactNode;
 }
+
+/** Types that have their own category; others count as Uncategorized */
+const STANDARD_TYPE_KEYS = new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"]);
 
 const FACILITY_CATEGORIES: CategoryConfig[] = [
   {
@@ -61,6 +64,16 @@ const FACILITY_CATEGORIES: CategoryConfig[] = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+      </svg>
+    ),
+  },
+  {
+    key: "other",
+    label: "Uncategorized",
+    color: "#6b7280",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
       </svg>
     ),
   },
@@ -165,6 +178,10 @@ function computeCategoryOptions(
   const facs =
     categoryKey === "ngo"
       ? allFacilities.filter((f) => f.orgType === "ngo")
+      : categoryKey === "other"
+      ? allFacilities.filter(
+          (f) => f.orgType !== "ngo" && (!f.type || !STANDARD_TYPE_KEYS.has(f.type))
+        )
       : allFacilities.filter(
           (f) => f.type === categoryKey && f.orgType !== "ngo"
         );
@@ -279,6 +296,8 @@ interface Props {
   onClearChatFilter: () => void;
   subFilters: CategorySubFilters;
   onSubFiltersChange: (v: CategorySubFilters) => void;
+  selectedFacility: Facility | null;
+  onSelectFacility: (f: Facility | null) => void;
 }
 
 /* ─── Component ─── */
@@ -301,10 +320,37 @@ export default function FacilitiesPanel({
   onClearChatFilter,
   subFilters,
   onSubFiltersChange,
+  selectedFacility,
+  onSelectFacility,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<"filters" | "facility">("filters");
+
+  /* When a facility is selected (e.g. from map), switch to Facility info tab */
+  useEffect(() => {
+    if (selectedFacility) setRightTab("facility");
+  }, [selectedFacility?.uid]);
+
+  /* Scroll list to selected facility when selection changes (e.g. from map click) */
+  const selectedRowRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (selectedFacility && rightTab === "facility") {
+      selectedRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selectedFacility?.uid, rightTab]);
+
+  /* Fixed order for facility list: by name, then city, then region */
+  const sortedFacilities = useMemo(() => {
+    return [...facilities].sort((a, b) => {
+      const n = (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+      if (n !== 0) return n;
+      const c = (a.city || "").localeCompare(b.city || "", undefined, { sensitivity: "base" });
+      if (c !== 0) return c;
+      return (a.region || "").localeCompare(b.region || "", undefined, { sensitivity: "base" });
+    });
+  }, [facilities]);
 
   /* Tell Leaflet (and any other layout-dependent widget) to recalculate
      after the panel collapse/expand CSS transition (300ms). */
@@ -327,9 +373,15 @@ export default function FacilitiesPanel({
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const cat of FACILITY_CATEGORIES) {
-      counts[cat.key] = allFacilities.filter(
-        (f) => f.type === cat.key && f.orgType !== "ngo"
-      ).length;
+      if (cat.key === "other") {
+        counts["other"] = allFacilities.filter(
+          (f) => f.orgType !== "ngo" && (!f.type || !STANDARD_TYPE_KEYS.has(f.type))
+        ).length;
+      } else {
+        counts[cat.key] = allFacilities.filter(
+          (f) => f.type === cat.key && f.orgType !== "ngo"
+        ).length;
+      }
     }
     counts["ngo"] = allFacilities.filter((f) => f.orgType === "ngo").length;
     return counts;
@@ -374,7 +426,7 @@ export default function FacilitiesPanel({
 
   const clearAll = () => {
     onSelectedTypesChange(
-      new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"])
+      new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist", "other"])
     );
     onShowNgosChange(true);
     onEquipmentFiltersChange(new Set());
@@ -619,30 +671,58 @@ export default function FacilitiesPanel({
       >
         {/* Panel content */}
         <div className={`panel-content ${collapsed ? "hidden" : ""}`}>
-          {/* Header */}
-          <div className="px-5 pt-5 pb-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white">Filters</h2>
-            <button
-              onClick={clearAll}
-              className="text-xs text-[#2dd4bf] hover:text-[#5eead4] transition-colors font-medium"
-            >
-              Clear All
-            </button>
+          {/* Header: Filters | Facility info — segment control */}
+          <div className="px-4 pt-5 pb-4">
+            <div className="flex rounded-xl bg-[#151d2e] border border-[#1c2a3a] p-1">
+              <button
+                onClick={() => setRightTab("filters")}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+                  rightTab === "filters"
+                    ? "bg-[#2dd4bf] text-[#080c14] shadow-sm"
+                    : "text-[#6b7a8d] hover:text-[#8b97a8]"
+                }`}
+              >
+                Filters
+              </button>
+              <button
+                onClick={() => setRightTab("facility")}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+                  rightTab === "facility"
+                    ? "bg-[#2dd4bf] text-[#080c14] shadow-sm"
+                    : "text-[#6b7a8d] hover:text-[#8b97a8]"
+                }`}
+              >
+                Facility info
+              </button>
+            </div>
+            {/* Filters-only sub-header */}
+            {rightTab === "filters" && (
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  {highlightCount > 0 && (
+                    <p className="text-xs text-[#f59e0b] truncate">
+                      {highlightCount} {chatFilterActive ? "AI results" : "highlighted"}
+                    </p>
+                  )}
+                  {activeSubFilterCount > 0 && (
+                    <p className="text-xs text-[#2dd4bf]">
+                      {activeSubFilterCount} sub-filter{activeSubFilterCount > 1 ? "s" : ""} active
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={clearAll}
+                  className="shrink-0 text-xs text-[#2dd4bf] hover:text-[#5eead4] transition-colors font-medium"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
           </div>
-          {highlightCount > 0 && (
-            <p className="text-xs text-[#f59e0b] mt-1">
-              {highlightCount} {chatFilterActive ? "AI results shown" : "highlighted"}
-            </p>
-          )}
-          {activeSubFilterCount > 0 && (
-            <p className="text-xs text-[#2dd4bf] mt-0.5">
-              {activeSubFilterCount} sub-filter{activeSubFilterCount > 1 ? "s" : ""} active
-            </p>
-          )}
-        </div>
 
-        {/* AI filter active banner */}
+        {/* AI filter active banner — only when Filters tab */}
+        {rightTab === "filters" && (
+        <>
         {chatFilterActive && highlightCount > 0 && (
           <div className="mx-4 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20">
             <div className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse shrink-0" />
@@ -953,6 +1033,241 @@ export default function FacilitiesPanel({
             )}
           </div>
         </div>
+        </>
+        )}
+
+        {rightTab === "facility" && (
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Selected facility detail at top */}
+            {selectedFacility && (
+              <div className="shrink-0 overflow-y-auto custom-scrollbar px-4 pt-4 pb-2 border-b border-[#1c2a3a] max-h-[45%]">
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-white leading-tight">{selectedFacility.name}</h3>
+                    <button
+                      onClick={() => onSelectFacility(null)}
+                      className="shrink-0 text-[#5a6577] hover:text-[#e8edf5] p-0.5 rounded"
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#6b7a8d]">
+                    {selectedFacility.city}{selectedFacility.region ? `, ${selectedFacility.region}` : ""}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedFacility.type && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1a2538] text-[#8b97a8] border border-[#1c2a3a]">
+                        {selectedFacility.type}
+                      </span>
+                    )}
+                    {selectedFacility.operator && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1a2538] text-[#8b97a8] border border-[#1c2a3a]">
+                        {selectedFacility.operator}
+                      </span>
+                    )}
+                    {highlightedNames.has(selectedFacility.name) && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30">
+                        Chat Result
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Reliability score: 1–10 visualization or placeholder */}
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577] mb-1.5">Reliability</h4>
+                    {selectedFacility.reliabilityScore != null && selectedFacility.reliabilityScore >= 1 && selectedFacility.reliabilityScore <= 10 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#8b97a8]">Score</span>
+                          <span className="font-semibold text-white tabular-nums">{selectedFacility.reliabilityScore} / 10</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[#1c2a3a] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#22c55e] via-[#eab308] to-[#ef4444] transition-all duration-300"
+                            style={{ width: `${(selectedFacility.reliabilityScore / 10) * 100}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[9px] text-[#5a6577]">
+                          <span>1</span>
+                          <span>10</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#5a6577] italic">Not enough data to predict reliability.</p>
+                    )}
+                    {selectedFacility.reliabilityExplanation?.trim() && (
+                      <p className="text-[11px] text-[#6b7a8d] leading-relaxed mt-1.5">
+                        {selectedFacility.reliabilityExplanation.trim()}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* About / Description — always show; placeholder when empty */}
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577] mb-1">About</h4>
+                    <p className="text-xs text-[#8b97a8] leading-relaxed">
+                      {selectedFacility.description?.trim() || "No description available."}
+                    </p>
+                  </div>
+
+                  {(selectedFacility.doctors != null || selectedFacility.beds != null) && (
+                    <div>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577] mb-1">Capacity</h4>
+                      <div className="flex gap-4 text-xs text-[#8b97a8]">
+                        {selectedFacility.doctors != null && <span>👨‍⚕️ {selectedFacility.doctors} doctors</span>}
+                        {selectedFacility.beds != null && <span>🛏️ {selectedFacility.beds} beds</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedFacility.phone || selectedFacility.email || selectedFacility.website) && (
+                    <div>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577] mb-1.5">Contact</h4>
+                      <ul className="space-y-1 text-xs text-[#8b97a8]">
+                        {selectedFacility.phone && (
+                          <li>
+                            <a href={`tel:${selectedFacility.phone}`} className="text-[#2dd4bf] hover:underline">
+                              📞 {selectedFacility.phone}
+                            </a>
+                          </li>
+                        )}
+                        {selectedFacility.email && (
+                          <li>
+                            <a href={`mailto:${selectedFacility.email}`} className="text-[#2dd4bf] hover:underline break-all">
+                              ✉️ {selectedFacility.email}
+                            </a>
+                          </li>
+                        )}
+                        {selectedFacility.website && (
+                          <li>
+                            <a
+                              href={selectedFacility.website.startsWith("http") ? selectedFacility.website : `https://${selectedFacility.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#2dd4bf] hover:underline break-all"
+                            >
+                              🔗 {selectedFacility.website}
+                            </a>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577] mb-1.5">Services</h4>
+                    <div className="space-y-2 text-xs">
+                      {selectedFacility.specialties.length > 0 && (
+                        <div>
+                          <span className="text-[#5a6577]">Specialties</span>
+                          <p className="text-[#8b97a8] mt-0.5">{selectedFacility.specialties.join(", ")}</p>
+                        </div>
+                      )}
+                      {selectedFacility.procedures.length > 0 && (
+                        <div>
+                          <span className="text-[#5a6577]">Procedures</span>
+                          <ul className="text-[#8b97a8] mt-0.5 list-disc list-inside space-y-0.5">
+                            {selectedFacility.procedures.map((p, i) => (
+                              <li key={i}>{p}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedFacility.equipment.length > 0 && (
+                        <div>
+                          <span className="text-[#5a6577]">Equipment</span>
+                          <ul className="text-[#8b97a8] mt-0.5 list-disc list-inside space-y-0.5">
+                            {selectedFacility.equipment.map((e, i) => (
+                              <li key={i}>{e}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedFacility.capabilities.length > 0 && (
+                        <div>
+                          <span className="text-[#5a6577]">Capabilities</span>
+                          <ul className="text-[#8b97a8] mt-0.5 list-disc list-inside space-y-0.5">
+                            {selectedFacility.capabilities.map((c, i) => (
+                              <li key={i}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedFacility.specialties.length === 0 &&
+                        selectedFacility.procedures.length === 0 &&
+                        selectedFacility.equipment.length === 0 &&
+                        selectedFacility.capabilities.length === 0 && (
+                          <p className="text-[#5a6577] italic">No service details listed.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Facility list — fixed order, condensed rows; click selects and pans map */}
+            <div className="flex-1 flex flex-col min-h-0 pt-2">
+              <div className="shrink-0 px-4 pb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5a6577]">
+                  {selectedFacility ? "All facilities" : "Select a facility"}
+                </span>
+                <span className="text-[10px] text-[#3a4556] ml-1.5">({sortedFacilities.length})</span>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-2 pb-4">
+                {sortedFacilities.length === 0 ? (
+                  <p className="text-xs text-[#5a6577] text-center py-6 px-2">
+                    No facilities match the current filters.
+                  </p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {sortedFacilities.map((f) => {
+                      const isSelected = selectedFacility?.uid === f.uid;
+                      const isHighlighted = highlightedNames.has(f.name);
+                      return (
+                        <button
+                          key={f.uid || f.id + f.city}
+                          ref={isSelected ? selectedRowRef : undefined}
+                          type="button"
+                          onClick={() => onSelectFacility(f)}
+                          className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                            isSelected
+                              ? "bg-[#2dd4bf]/15 border border-[#2dd4bf]/40 text-white"
+                              : "border border-transparent text-[#8b97a8] hover:bg-[#151d2e] hover:text-[#c4cdd9]"
+                          } ${isHighlighted && !isSelected ? "ring-1 ring-[#f59e0b]/30" : ""}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: isHighlighted
+                                  ? "#f59e0b"
+                                  : f.orgType === "ngo"
+                                  ? "#ef4444"
+                                  : { hospital: "#3b82f6", clinic: "#22c55e", doctor: "#a855f7", pharmacy: "#f97316", dentist: "#2dd4bf" }[f.type] || "#6b7a8d",
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium truncate text-inherit">{f.name}</div>
+                              <div className="text-[10px] text-[#6b7a8d] truncate">
+                                {f.city}{f.region ? `, ${f.region}` : ""}
+                              </div>
+                            </div>
+                            {isHighlighted && (
+                              <span className="shrink-0 text-[9px] px-1.5 py-0 rounded bg-[#f59e0b]/20 text-[#f59e0b] font-medium">
+                                Chat
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
     </div>

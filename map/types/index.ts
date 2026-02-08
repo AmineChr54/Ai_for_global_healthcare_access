@@ -23,6 +23,10 @@ export interface Facility {
   orgType: string;
   description: string;
   website: string;
+  /** Reliability score 1–10, or null when not available */
+  reliabilityScore?: number | null;
+  /** Explanation for the reliability score */
+  reliabilityExplanation?: string | null;
   phone?: string;
   email?: string;
 }
