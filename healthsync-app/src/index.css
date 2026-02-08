@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+    /* Midnight blue base */
+    --background: 222 47% 8%;
+    --foreground: 210 40% 96%;
+
+    /* Slightly lighter dark blue for cards/panels */
+    --card: 222 44% 13%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 15%;
+    --popover-foreground: 210 40% 96%;
+
+    /* Golden Amber primary */
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 8%;
+
+    /* Teal/Cyan secondary */
+    --secondary: 174 72% 46%;
+    --secondary-foreground: 222 47% 8%;
+
+    --muted: 222 30% 18%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 222 30% 20%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+
+    --success: 174 72% 46%;
+    --success-foreground: 222 47% 8%;
+
+    --border: 222 30% 20%;
+    --input: 222 30% 16%;
+    --ring: 38 92% 50%;
+
+    --radius: 1rem;
+
+    /* Sidebar — deepest layer */
+    --sidebar-background: 222 47% 10%;
+    --sidebar-foreground: 210 40% 92%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 222 47% 8%;
+    --sidebar-accent: 222 30% 16%;
+    --sidebar-accent-foreground: 210 40% 92%;
+    --sidebar-border: 222 30% 16%;
+    --sidebar-ring: 38 92% 50%;
+    --sidebar-muted: 215 16% 50%;
+  }
+
+  /* No separate dark mode needed — the whole app IS dark */
+  .dark {
+    /* Same as root — already dark */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  [dir="rtl"] {
+    direction: rtl;
+  }
+}
+
+@layer components {
+  /* Floating panel effect for cards */
+  .floating-panel {
+    @apply bg-card rounded-2xl border border-border/50;
+    box-shadow:
+      0 4px 6px -1px hsla(222, 47%, 4%, 0.4),
+      0 10px 25px -5px hsla(222, 47%, 4%, 0.3),
+      0 0 0 1px hsla(210, 40%, 96%, 0.03);
+  }
+
+  /* Pill-shaped inputs */
+  .input-pill {
+    @apply rounded-full bg-input border-border/50 text-foreground placeholder:text-muted-foreground;
+  }
+}
