@@ -1,0 +1,54 @@
+version: "3"
+
+tasks:
+  default:
+    desc: Start all development services
+    cmds:
+      - task: dev
+
+  dev:
+    desc: Start all development services
+    cmds:
+      - task: info
+      - task: services
+
+  docker:
+    desc: Start Docker services
+    cmd: docker-compose -f infra/docker-compose.yml up -d
+
+  info:
+    desc: Print service URLs
+    silent: true
+    cmd: |
+      powershell -Command "
+        Write-Host ''
+        Write-Host '==================================================='
+        Write-Host '  Virtue Foundation - Healthcare Agent'
+        Write-Host '==================================================='
+        Write-Host ''
+        Write-Host '  Healthsync App:  http://localhost:3000'
+        Write-Host '  Map:             http://localhost:3001'
+        Write-Host '  Backend API:     http://localhost:8000/docs'
+        Write-Host ''
+        Write-Host '==================================================='
+        Write-Host ''
+      "
+
+  services:
+    desc: Start backend and frontend in parallel
+    deps: [backend, healthsync-app, map]
+
+  backend:
+    desc: Start backend server
+    ignore_error: true
+    cmd: powershell -Command ".\.venv\Scripts\uvicorn api.server:app --reload --host 0.0.0.0 --port 8000"
+
+  healthsync-app:
+    desc: Start healthsync app dev server
+    dir: healthsync-app
+    cmd: npm run dev -- --port 3000
+
+  map:
+    desc: Start map dev server
+    dir: map
+    cmd: npm run dev -- -p 3001

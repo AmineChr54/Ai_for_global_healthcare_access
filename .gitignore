@@ -1,23 +1,95 @@
-# Dependencies
-node_modules/
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
 
-# Next.js
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+*.whl
+*.pdb
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ========================
+# Node.js / Next.js
+# ========================
+node_modules/
 .next/
 out/
-
-# Env and secrets
-.env
-.env.local
-.env.*.local
-
-# Debug and IDE
 npm-debug.log*
-.DS_Store
-.idea/
-.vscode/
-*.log
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
 
-# Build and cache
-.turbo/
+# ========================
+# Data artifacts (generated)
+# ========================
+data/
+#*.db dirty data upload...
+#*.sqlite
+#*.sqlite3
+
+# ========================
+# IDE & Editors
+# ========================
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ========================
+# OS files
+# ========================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# Testing & Coverage
+# ========================
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ========================
+# TypeScript build artifacts
+# ========================
+tsconfig.tsbuildinfo
 *.tsbuildinfo
-next-env.d.ts
+
+# ========================
+# Misc
+# ========================
+*.bak
+*.tmp
+*.temp
+.cache/

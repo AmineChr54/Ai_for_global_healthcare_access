@@ -1,0 +1,60 @@
+[project]
+name = "vf-healthcare-agent"
+version = "0.1.0"
+description = "Agentic AI intelligence layer for global healthcare access — Virtue Foundation"
+requires-python = ">=3.10"
+dependencies = [
+    # Core
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+
+    # Data loading and parsing (ingestion)
+    "pandas>=2.0",
+
+    # Database
+    "psycopg[binary]>=3.1",
+    "pgvector>=0.2.0",
+
+    # LangGraph pipeline
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+
+    # OpenAI
+    "openai>=1.50.0",
+
+    # Vector store
+    "faiss-cpu>=1.8.0",
+
+    # Numeric (required by faiss-cpu)
+    "numpy>=1.26.0",
+
+    # Geocoding (ingestion / prepare_map_data)
+    "geopy>=2.4",
+
+    # API Server
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+
+    # CLI
+    "rich>=13.7.0",
+    "typer>=0.12",
+
+    # IDP — fuzzy medical term matching
+    "rapidfuzz>=3.0.0",
+
+    # IDP — PDF text extraction
+    "PyPDF2>=3.0.0",
+
+    # IDP — PDF page-to-image rendering (fallback for scanned PDFs)
+    "pymupdf>=1.24.0",
+]
+
+[project.optional-dependencies]
+tracing = ["mlflow>=2.15.0"]
+postgres = ["psycopg2-binary>=2.9.0", "sqlalchemy>=2.0.0"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
