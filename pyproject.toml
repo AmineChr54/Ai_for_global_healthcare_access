@@ -15,8 +15,7 @@ dependencies = [
     # Vector Store
     "faiss-cpu>=1.8.0",
 
-    # Database (DuckDB in-memory)
-    "duckdb>=1.1.0",
+    # Database (SQLite via datacleaning; same DB as map)
 
     # Numeric (required by faiss-cpu)
     "numpy>=1.26.0",

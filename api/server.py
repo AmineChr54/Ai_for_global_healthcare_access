@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Initialize the data layer on startup, clean up on shutdown."""
     logger.info("🚀 Starting VF Healthcare Agent API")
-    logger.info("Initializing data layer (DuckDB + FAISS)...")
+    logger.info("Initializing data layer (SQLite + FAISS)...")
     try:
         initialize_data()
         logger.info("✅ Data layer ready")

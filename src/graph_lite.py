@@ -3,10 +3,10 @@ Lite Healthcare Pipeline — 2 LLM calls instead of 8+.
 
 Architecture:
     Call 1 (analyze_and_query):  Question → SQL queries + search terms   [1 LLM call]
-    Execute (no LLM):           SQL + vector search + WHO context        [0-1 embedding]
+    Execute (no LLM, no embeddings):  SQL + SQL free-text search + WHO context on health.db
     Call 2 (synthesize):         All results → answer + citations        [1 LLM call]
 
-Total: 2 LLM calls + 0-1 embedding = ~40-60s on free tier, <5s on paid.
+Total: 2 LLM calls only. All data from health.db via SQL (no FAISS/embeddings).
 
 Same interface as graph.py:
     from src.graph_lite import initialize_data, run_query
@@ -16,7 +16,6 @@ Same interface as graph.py:
 
 from __future__ import annotations
 
-import csv
 import json
 import logging
 import re
@@ -25,7 +24,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.config import DATASET_CSV
 from src.data.ghana_context import (
     GHANA_HEALTH_STATS,
     REGION_POPULATION,
@@ -103,9 +101,9 @@ THE THREE QUERIES (all three are REQUIRED):
 
 Also provide vector_search_terms if the query involves specific equipment, procedures, or capabilities that are stored as free-text (not in the specialties column). Leave empty for basic specialty/facility lookups.
 
-SQL RULES:
-- JSON array columns (specialties, procedure, equipment, capability) are VARCHAR with JSON.
-  Use: column ILIKE '%searchterm%' for matching.
+SQL RULES (SQLite — use LIKE; no ILIKE):
+- Text columns (specialties, procedure, equipment, capability) are TEXT. Use: column LIKE '%searchterm%' for matching.
+  For case-insensitive: LOWER(column) LIKE LOWER('%searchterm%').
 - Numeric columns (numberDoctors, capacity) are VARCHAR. Cast: CAST(col AS INTEGER).
   Always filter: WHERE col != 'null' AND col IS NOT NULL
 - NULL values: some columns store string 'null'. Always add: AND column != 'null'
@@ -116,18 +114,19 @@ SQL RULES:
 
 SPECIALTY FILTERING (CRITICAL — READ CAREFULLY):
 When expanded_terms are provided, you MUST use ONLY those exact terms for matching.
-Do NOT use the user's original words (e.g. "pediatric care", "heart surgery") in ILIKE patterns.
+Do NOT use the user's original words (e.g. "pediatric care", "heart surgery") in LIKE patterns.
 Instead, use the expanded_terms values (e.g. "pediatrics", "cardiacSurgery").
 
 The expanded_terms are the canonical column values that ACTUALLY EXIST in the data.
 The user's natural language terms (like "pediatric care") do NOT exist in the data and will return 0 rows.
 
-MATCHING ACROSS MULTIPLE COLUMNS:
+MATCHING ACROSS MULTIPLE COLUMNS (SQLite: use LIKE, or LOWER(col) LIKE LOWER('%T%') for case-insensitive):
 For each expanded term, search across specialties, procedure, capability, AND equipment columns.
 This is critical because a facility might list a service in capability/procedure but not in specialties.
 
 RULE: For EACH expanded term T, create a combined condition:
-  (specialties ILIKE '%T%' OR procedure ILIKE '%T%' OR capability ILIKE '%T%' OR equipment ILIKE '%T%')
+  (specialties LIKE '%'||T||'%' OR procedure LIKE '%'||T||'%' OR capability LIKE '%'||T||'%' OR equipment LIKE '%'||T||'%')
+  or use LOWER(column) LIKE LOWER('%'||T||'%'). In SQLite string concat is ||.
 If multiple expanded terms, combine the per-term conditions with OR inside parentheses.
 
 EXAMPLES:
@@ -424,7 +423,7 @@ def _execute_all(
     expanded_terms: Optional[List[str]] = None,
     original_question: str = "",
 ) -> Dict[str, Any]:
-    """Execute SQL, vector search, and inject WHO context. (0 LLM calls, 0-1 embedding)
+    """Execute SQL, SQL free-text search, and inject WHO context. (0 LLM calls, 0 embeddings)
 
     If the LLM-generated primary SQL returns 0 rows but expanded_terms are available,
     automatically falls back to a reliable direct query.
@@ -501,14 +500,14 @@ def _execute_all(
         "error": primary.get("error"),
     }
 
-    # ── Vector search (if needed) ────────────────────────────────────────
+    # ── Free-text search via SQL (no embeddings; uses health.db only) ──────
     vector_results: List[Dict[str, Any]] = []
     if analysis.vector_search_terms:
         try:
-            from src.tools.vector_search import search as vector_search
+            from src.tools.sql_executor import search_free_text
 
             for term in analysis.vector_search_terms[:3]:
-                hits = vector_search(term, top_k=10)
+                hits = search_free_text(term, top_k=10)
                 vector_results.extend(hits)
             # Deduplicate by text
             seen = set()
@@ -519,9 +518,9 @@ def _execute_all(
                     seen.add(key)
                     unique.append(hit)
             vector_results = unique[:15]
-            logger.info(f"Vector search: {len(vector_results)} unique results")
+            logger.info(f"Free-text SQL search: {len(vector_results)} unique results")
         except Exception as e:
-            logger.warning(f"Vector search skipped: {e}")
+            logger.warning(f"Free-text search skipped: {e}")
 
     # ── WHO / population context (no LLM call) ──────────────────────────
     external_context = {
@@ -599,24 +598,17 @@ def _call2_synthesize(
 
 
 def initialize_data() -> None:
-    """Initialize DuckDB + FAISS. Call once before processing queries."""
-    from src.tools.sql_executor import _get_connection
-    from src.tools.vector_search import build_index
+    """Initialize SQLite (facilities VIEW) only. No FAISS, no embedding API calls — all search via SQL on health.db."""
+    from src.tools.sql_executor import _get_connection, execute_sql
 
     try:
-        logger.info("Initializing DuckDB (in-memory)...")
+        logger.info("Initializing database (SQLite facilities VIEW)...")
         _get_connection()
-
-        logger.info("Loading facilities for vector index...")
-        with open(DATASET_CSV, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            facilities = list(reader)
-        logger.info(f"   Loaded {len(facilities)} facilities")
-
-        logger.info("Building FAISS vector index...")
-        build_index(facilities, force_rebuild=False)
-
-        logger.info("Data initialization complete")
+        result = execute_sql("SELECT COUNT(*) AS n FROM facilities")
+        if result["success"] and result["rows"]:
+            n = result["rows"][0].get("n", 0)
+            logger.info(f"   facilities VIEW: {n} rows")
+        logger.info("Data initialization complete (SQL-only, no embeddings)")
     except Exception as e:
         logger.error(f"Data initialization failed: {e}")
         raise
