@@ -1,0 +1,20 @@
+# Generated from pyproject.toml for Databricks Apps (pip install -r requirements.txt)
+# Local dev: use poetry/pip install -e .
+
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+pandas>=2.0
+psycopg[binary]>=3.1
+pgvector>=0.2.0
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+openai>=1.50.0
+faiss-cpu>=1.8.0
+numpy>=1.26.0
+geopy>=2.4
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+rich>=13.7.0
+typer>=0.12

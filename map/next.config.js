@@ -2,6 +2,13 @@
 const nextConfig = {
   images: { unoptimized: true },
 
+  // Proxy /api to FastAPI when using combined start (e.g. Databricks). Ignored when frontend calls API by full URL (local dev).
+  async rewrites() {
+    return [
+      { source: "/api/:path*", destination: "http://127.0.0.1:8001/api/:path*" },
+    ];
+  },
+
   // Keep WASM-based and DOM-dependent packages out of the server bundle
   // so they don't break SSR module resolution.
   serverExternalPackages: ["h3-js", "leaflet", "leaflet.markercluster"],

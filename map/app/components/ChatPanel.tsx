@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import type { Facility, ChatMessage } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Use relative /api when NEXT_PUBLIC_API_URL is "" (e.g. Databricks); else default to local backend for local dev.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const SUGGESTIONS = [
   "Where are the largest cold spots for cataract surgery within 50km?",
@@ -173,7 +174,7 @@ export default function ChatPanel({
         err.message?.includes("Failed to fetch") ||
         err.message?.includes("fetch")
       ) {
-        content = "**Connection error:** Could not reach the API server. Make sure it is running on port 8000.";
+        content = "**Connection error:** Could not reach the API server. Make sure it is running (local dev: port 8000).";
       } else {
         content = `**Error:** ${err.message}`;
       }

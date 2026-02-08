@@ -1,0 +1,15 @@
+{
+  "name": "vf-healthcare-agent-root",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Root entry point for Databricks Apps: runs API + Next.js together. Local dev: use uvicorn and cd map && npm run dev separately.",
+  "scripts": {
+    "build": "cd map && npm ci && npm run build",
+    "start": "concurrently --kill-others \"npm run start:api\" \"npm run start:web\"",
+    "start:api": "uvicorn api.server:app --host 0.0.0.0 --port 8001",
+    "start:web": "cd map && npm run start -- -p 8000"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

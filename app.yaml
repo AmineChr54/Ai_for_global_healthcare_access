@@ -1,0 +1,15 @@
+# Databricks Apps runtime config.
+# Used only when deploying to Databricks; ignored for local dev.
+# See: https://docs.databricks.com/en/dev-tools/databricks-apps/app-runtime.html
+#
+# Build: set NEXT_PUBLIC_API_URL="" (or omit) so the frontend uses relative /api (proxied to backend).
+# Run both FastAPI (port 8001) and Next.js (port 8000) via root package.json "start" script.
+# Next.js serves the UI and proxies /api/* to the backend.
+command: ["npm", "run", "start"]
+
+# Optional: pass Databricks secret scope so backend reads OPENAI_API_KEY and DATABASE_URL from secrets.
+# Uncomment and set in Databricks app env or here (prefer workspace env for secrets):
+# env:
+#   - name: DATABRICKS_SECRET_SCOPE
+#     valueFrom:
+#       secret: your-secret-scope
