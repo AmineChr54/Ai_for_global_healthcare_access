@@ -4,13 +4,17 @@ import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import ChatPanel from "./components/ChatPanel";
 import FacilitiesPanel from "./components/FacilitiesPanel";
+import SearchBar from "./components/SearchBar";
+import CoverageInfoCard from "./components/CoverageInfoCard";
 import type {
   Facility,
   Analysis,
   LayerState,
   ChatMessage,
   QueryFilters,
+  CategorySubFilters,
 } from "@/types";
+import { EMPTY_SUB_FILTERS } from "@/types";
 
 // Dynamic import for Leaflet (no SSR)
 const MapView = dynamic(() => import("./components/MapView"), { ssr: false });
@@ -32,12 +36,15 @@ export default function Home() {
   const [equipmentFilters, setEquipmentFilters] = useState<Set<string>>(
     new Set()
   );
+  const [subFilters, setSubFilters] =
+    useState<CategorySubFilters>(EMPTY_SUB_FILTERS);
 
   // Chat + highlight state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [highlightedNames, setHighlightedNames] = useState<Set<string>>(
     new Set()
   );
+  const [chatFilterActive, setChatFilterActive] = useState(false);
 
   // Layer state
   const [layers, setLayers] = useState<LayerState>({
@@ -80,6 +87,13 @@ export default function Home() {
 
   const clearHighlights = useCallback(() => {
     setHighlightedNames(new Set());
+    setChatFilterActive(false);
+  }, []);
+
+  // When the chat returns facility names, activate exclusive filter mode
+  const handleChatHighlight = useCallback((names: Set<string>) => {
+    setHighlightedNames(names);
+    setChatFilterActive(names.size > 0);
   }, []);
 
   const applyQueryFilters = useCallback((filters: QueryFilters) => {
@@ -101,6 +115,11 @@ export default function Home() {
 
   // Filtered facilities
   const filtered = useMemo(() => {
+    // When the AI returns specific facilities, show ONLY those on the map
+    if (chatFilterActive && highlightedNames.size > 0) {
+      return facilities.filter((f) => highlightedNames.has(f.name));
+    }
+
     return facilities.filter((f) => {
       if (
         search &&
@@ -140,12 +159,43 @@ export default function Home() {
             return false;
         }
         if (equipmentFilters.has("anomalies")) {
-          // Show facilities with potential anomalies (e.g., claim specialties but lack equipment)
           const hasSpecialties = f.specialties.length > 0;
           const hasEquipment = f.equipment.length > 0;
           if (!(hasSpecialties && !hasEquipment)) return false;
         }
       }
+
+      // Sub-filters (from per-category drill-down)
+      if (subFilters.operator && f.operator !== subFilters.operator)
+        return false;
+      if (
+        subFilters.regions.size > 0 &&
+        !subFilters.regions.has(f.region)
+      )
+        return false;
+      if (
+        subFilters.procedures.size > 0 &&
+        !f.procedures.some((p) => subFilters.procedures.has(p))
+      )
+        return false;
+      if (
+        subFilters.equipment.size > 0 &&
+        !f.equipment.some((e) => subFilters.equipment.has(e))
+      )
+        return false;
+      if (
+        subFilters.capabilities.size > 0 &&
+        !f.capabilities.some((c) => subFilters.capabilities.has(c))
+      )
+        return false;
+      if (subFilters.hasDoctors === true && (f.doctors === null || f.doctors === 0))
+        return false;
+      if (subFilters.hasDoctors === false && f.doctors !== null && f.doctors > 0)
+        return false;
+      if (subFilters.hasBeds === true && (f.beds === null || f.beds === 0))
+        return false;
+      if (subFilters.hasBeds === false && f.beds !== null && f.beds > 0)
+        return false;
 
       return true;
     });
@@ -156,6 +206,9 @@ export default function Home() {
     selectedTypes,
     showNgos,
     equipmentFilters,
+    subFilters,
+    chatFilterActive,
+    highlightedNames,
   ]);
 
   const allSpecialties = useMemo(() => {
@@ -207,16 +260,16 @@ export default function Home() {
         messages={chatMessages}
         onMessagesChange={setChatMessages}
         facilities={facilities}
-        onHighlight={setHighlightedNames}
+        onHighlight={handleChatHighlight}
         onSelectFacility={setSelectedFacility}
         onApplyFilters={applyQueryFilters}
         onOpenSettings={() => setLayerPanelOpen(!layerPanelOpen)}
       />
 
-      {/* Right: Map + Facilities */}
-      <div className="flex-1 flex flex-col gap-3 min-w-0">
-        {/* Map area */}
-        <div className="flex-[3] relative rounded-2xl overflow-hidden border border-[#1c2a3a]">
+      {/* Right: Map + Facilities Panel */}
+      <div className="flex-1 flex min-w-0 relative">
+        {/* Map area — takes full space */}
+        <div className="flex-1 relative rounded-2xl overflow-hidden border border-[#1c2a3a]">
           <MapView
             facilities={filtered}
             analysis={analysis}
@@ -227,10 +280,26 @@ export default function Home() {
             highlightedNames={highlightedNames}
           />
 
-          {/* Floating layer button */}
+          {/* Floating search bar */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]">
+            <SearchBar
+              search={search}
+              onSearchChange={setSearch}
+              selectedSpecialty={selectedSpecialty}
+              onSpecialtyChange={setSelectedSpecialty}
+              allSpecialties={allSpecialties}
+            />
+          </div>
+
+          {/* Coverage info card */}
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[999]">
+            <CoverageInfoCard analysis={analysis} facilities={filtered} />
+          </div>
+
+          {/* Floating layers button — bottom right */}
           <button
             onClick={() => setLayerPanelOpen(!layerPanelOpen)}
-            className={`absolute top-4 right-4 z-[1000] p-2.5 rounded-xl border shadow-lg transition-all ${
+            className={`absolute bottom-4 right-4 z-[1000] flex items-center gap-2 px-4 py-2.5 rounded-xl border shadow-lg transition-all ${
               layerPanelOpen
                 ? "bg-[#2dd4bf] border-[#2dd4bf] text-[#080c14]"
                 : "bg-[#0f1623]/90 backdrop-blur-sm border-[#1c2a3a] text-[#8b97a8] hover:text-white hover:border-[#263348]"
@@ -250,11 +319,12 @@ export default function Home() {
                 d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L12 12.75 6.429 9.75m11.142 0l4.179 2.25L12 17.25 2.25 12l4.179-2.25m11.142 0l4.179 2.25L12 22.5l-9.75-5.25 4.179-2.25"
               />
             </svg>
+            <span className="text-sm font-medium">Layers</span>
           </button>
 
-          {/* Floating layer panel */}
+          {/* Floating layer panel — bottom right, above button */}
           {layerPanelOpen && (
-            <div className="absolute top-16 right-4 z-[1000] w-64 bg-[#0f1623]/95 backdrop-blur-md border border-[#1c2a3a] rounded-xl p-4 shadow-2xl">
+            <div className="absolute bottom-16 right-4 z-[1000] w-64 bg-[#0f1623]/95 backdrop-blur-md border border-[#1c2a3a] rounded-xl p-4 shadow-2xl">
               <h3 className="text-xs font-semibold tracking-wider uppercase text-[#5a6577] mb-3">
                 Map Layers
               </h3>
@@ -346,13 +416,23 @@ export default function Home() {
             </div>
           )}
 
-          {/* Highlight banner */}
+          {/* Chat filter banner */}
           {highlightedNames.size > 0 && (
             <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-3 px-4 py-2.5 bg-[#0f1623]/95 backdrop-blur-md border border-[#f59e0b]/30 rounded-xl">
               <div className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
               <span className="text-xs text-[#f59e0b] font-medium">
-                {highlightedNames.size} facilities highlighted
+                {chatFilterActive
+                  ? `Showing ${highlightedNames.size} AI results`
+                  : `${highlightedNames.size} facilities highlighted`}
               </span>
+              {chatFilterActive && (
+                <button
+                  onClick={() => setChatFilterActive(false)}
+                  className="text-[11px] text-[#2dd4bf] hover:text-[#5eead4] px-2 py-0.5 rounded-md bg-[#2dd4bf]/10 hover:bg-[#2dd4bf]/20 transition-colors font-medium"
+                >
+                  Show All
+                </button>
+              )}
               <button
                 onClick={clearHighlights}
                 className="text-[11px] text-[#8b97a8] hover:text-white px-2 py-0.5 rounded-md bg-[#1a2538] hover:bg-[#263348] transition-colors"
@@ -363,20 +443,26 @@ export default function Home() {
           )}
         </div>
 
-        {/* Facilities Panel */}
-        <div className="flex-[2] min-h-0">
-          <FacilitiesPanel
-            facilities={filtered}
-            allFacilities={facilities}
-            analysis={analysis}
-            highlightedNames={highlightedNames}
-            selectedSpecialty={selectedSpecialty}
-            onSpecialtyChange={setSelectedSpecialty}
-            allSpecialties={allSpecialties}
-            equipmentFilters={equipmentFilters}
-            onEquipmentFiltersChange={setEquipmentFilters}
-          />
-        </div>
+        {/* Facilities Panel — vertical, right side, collapsible */}
+        <FacilitiesPanel
+          facilities={filtered}
+          allFacilities={facilities}
+          analysis={analysis}
+          highlightedNames={highlightedNames}
+          selectedSpecialty={selectedSpecialty}
+          onSpecialtyChange={setSelectedSpecialty}
+          allSpecialties={allSpecialties}
+          equipmentFilters={equipmentFilters}
+          onEquipmentFiltersChange={setEquipmentFilters}
+          selectedTypes={selectedTypes}
+          onSelectedTypesChange={setSelectedTypes}
+          showNgos={showNgos}
+          onShowNgosChange={setShowNgos}
+          chatFilterActive={chatFilterActive}
+          onClearChatFilter={clearHighlights}
+          subFilters={subFilters}
+          onSubFiltersChange={setSubFilters}
+        />
       </div>
     </div>
   );

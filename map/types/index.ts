@@ -77,3 +77,23 @@ export interface QueryFilters {
   specialty?: string;
   types?: string[];
 }
+
+export interface CategorySubFilters {
+  operator: string; // "" | "public" | "private"
+  regions: Set<string>;
+  procedures: Set<string>;
+  equipment: Set<string>;
+  capabilities: Set<string>;
+  hasDoctors: boolean | null; // null = no filter
+  hasBeds: boolean | null;
+}
+
+export const EMPTY_SUB_FILTERS: CategorySubFilters = {
+  operator: "",
+  regions: new Set(),
+  procedures: new Set(),
+  equipment: new Set(),
+  capabilities: new Set(),
+  hasDoctors: null,
+  hasBeds: null,
+};

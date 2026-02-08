@@ -56,7 +56,31 @@ export default function ChatPanel({
 }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [thinkingStage, setThinkingStage] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const THINKING_STAGES = [
+    { label: "Parsing query intent", detail: "Understanding your question" },
+    { label: "Classifying request type", detail: "Identifying required agents" },
+    { label: "Routing to specialized agents", detail: "Selecting optimal pipeline" },
+    { label: "Querying facility database", detail: "Searching across records" },
+    { label: "Cross-referencing medical data", detail: "Validating coverage layers" },
+    { label: "Analyzing geospatial patterns", detail: "Computing proximity metrics" },
+    { label: "Synthesizing final response", detail: "Compiling insights" },
+  ];
+
+  useEffect(() => {
+    if (!loading) {
+      setThinkingStage(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setThinkingStage((prev) =>
+        prev < THINKING_STAGES.length - 1 ? prev + 1 : prev
+      );
+    }, 3200);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -103,10 +127,23 @@ export default function ChatPanel({
 
       const apiNames: string[] = data.facility_names || [];
       const matched = matchFacilityNames(apiNames, facilities);
-      onHighlight(matched);
+
+      if (matched.size > 0) {
+        // We found matching facilities — highlight them on the map
+        onHighlight(matched);
+      } else {
+        // No matching facilities found — clear any existing highlights
+        // so the map shows all facilities (unselected state)
+        onHighlight(new Set());
+      }
 
       if (data.filters) {
-        onApplyFilters(data.filters);
+        // If no facilities matched, reset filters to show all facility types
+        if (matched.size === 0) {
+          onApplyFilters({ specialty: undefined, types: [] });
+        } else {
+          onApplyFilters(data.filters);
+        }
       }
 
       if (matched.size === 1) {
@@ -284,9 +321,12 @@ export default function ChatPanel({
                       </div>
                       {msg.metadata.facilityNames &&
                         msg.metadata.facilityNames.length > 0 && (
-                          <div className="mt-1.5 text-[11px] text-[#2dd4bf]">
-                            {msg.metadata.facilityNames.length} facilities
-                            highlighted on map
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#f59e0b]">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                            </svg>
+                            {msg.metadata.facilityNames.length} facilities shown on map
                           </div>
                         )}
                     </div>
@@ -301,8 +341,9 @@ export default function ChatPanel({
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-[#151d2e] border border-[#1c2a3a] rounded-xl px-4 py-3">
-              <div className="flex items-center gap-2">
+            <div className="bg-[#151d2e] border border-[#1c2a3a] rounded-xl px-4 py-3 w-full max-w-[92%]">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2.5">
                 <div className="flex gap-1">
                   <div
                     className="w-1.5 h-1.5 bg-[#2dd4bf] rounded-full animate-bounce"
@@ -317,13 +358,69 @@ export default function ChatPanel({
                     style={{ animationDelay: "300ms" }}
                   />
                 </div>
-                <span className="text-[11px] text-[#5a6577]">
-                  Running AI pipeline...
+                <span className="text-[11px] font-medium text-[#8b97a8]">
+                  Reasoning
                 </span>
               </div>
-              <p className="text-[10px] text-[#3a4556] mt-1.5">
-                This may take 1-2 minutes on free-tier API keys.
-              </p>
+
+              {/* Thinking stages */}
+              <div className="space-y-1.5">
+                {THINKING_STAGES.map((stage, idx) => {
+                  const isComplete = idx < thinkingStage;
+                  const isCurrent = idx === thinkingStage;
+                  const isPending = idx > thinkingStage;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-2 transition-all duration-500 ${
+                        isPending ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
+                      }`}
+                    >
+                      {/* Status icon */}
+                      <div className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
+                        {isComplete ? (
+                          <svg className="w-3.5 h-3.5 text-[#2dd4bf]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        ) : isCurrent ? (
+                          <div className="w-2 h-2 bg-[#2dd4bf] rounded-full animate-pulse" />
+                        ) : null}
+                      </div>
+
+                      {/* Label */}
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className={`text-[11px] leading-tight block transition-colors duration-300 ${
+                            isComplete
+                              ? "text-[#5a6577]"
+                              : isCurrent
+                              ? "text-[#c4cdd9]"
+                              : "text-[#3a4556]"
+                          }`}
+                        >
+                          {stage.label}
+                          {isCurrent && (
+                            <span className="text-[#3a4556] ml-1">
+                              — {stage.detail}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-2.5 h-[2px] bg-[#1c2a3a] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#2dd4bf] to-[#2dd4bf]/60 rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${((thinkingStage + 1) / THINKING_STAGES.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}

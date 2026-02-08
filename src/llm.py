@@ -23,11 +23,11 @@ from src.config import OPENAI_API_KEY, OPENAI_MODEL
 logger = logging.getLogger(__name__)
 
 # ── Global rate-limit throttle ───────────────────────────────────────────────
-# Free-tier: 3 RPM. With only 2 calls, a 22-second gap guarantees both calls
-# fit within the rate window without triggering retries. Total ~50s per query.
-# On paid tier (500+ RPM) this is negligible. Set to 1.0 if you upgrade.
+# Free-tier: 3 RPM. With only 2 calls, a 25-second gap guarantees both fit
+# within the rate window. Total ~55s per query on free tier, <5s on paid.
+# Set to 1.0 if you upgrade to a paid OpenAI plan.
 
-_MIN_GAP_SECONDS: float = 22.0
+_MIN_GAP_SECONDS: float = 25.0
 _lock = threading.Lock()
 _last_call_time: float = 0.0
 
@@ -68,6 +68,6 @@ def get_llm(*, temperature: float = 0.0, model: str | None = None) -> ChatOpenAI
         model=model or OPENAI_MODEL,
         api_key=OPENAI_API_KEY,
         temperature=temperature,
-        max_retries=3,
+        max_retries=0,
         request_timeout=120,
     )
