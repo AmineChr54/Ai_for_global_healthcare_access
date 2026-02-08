@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Env and secrets
+.env
+.env.local
+.env.*.local
+
+# Debug and IDE
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Build and cache
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
