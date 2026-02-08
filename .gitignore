@@ -81,6 +81,12 @@ htmlcov/
 .ruff_cache/
 
 # ========================
+# TypeScript build artifacts
+# ========================
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# ========================
 # Misc
 # ========================
 *.bak

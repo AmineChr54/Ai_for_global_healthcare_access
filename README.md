@@ -1,101 +1,119 @@
-# 🏥 VF Healthcare Intelligence Agent
+# VF Healthcare Intelligence Agent
 
 > **AI-Powered Healthcare Access Intelligence for Global Health Equity**
 
-An agentic AI system that analyzes healthcare facility data, identifies service gaps, and provides actionable insights for NGOs and policymakers working to improve healthcare access in underserved regions.
+An agentic AI system that analyzes healthcare facility data, identifies service gaps, and provides actionable insights for NGOs and policymakers working to improve healthcare access in underserved regions. Built for the [Virtue Foundation](https://virtuefoundation.org/)'s global healthcare access initiative.
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-green.svg)](https://github.com/langchain-ai/langgraph)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal.svg)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [Usage](#-usage)
-- [API Documentation](#-api-documentation)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [Development](#-development)
-- [Example Queries](#-example-queries)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Example Queries](#example-queries)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ---
 
-## 🎯 Overview
+## Overview
 
-The VF Healthcare Intelligence Agent is a sophisticated AI system designed to help healthcare planners, NGOs, and policymakers make data-driven decisions about healthcare resource allocation. Built for the Virtue Foundation's global healthcare access initiative, it currently focuses on Ghana's healthcare landscape.
+The VF Healthcare Intelligence Agent is an AI system designed to help healthcare planners, NGOs, and policymakers make data-driven decisions about healthcare resource allocation. It currently focuses on **Ghana's healthcare landscape** with 987 healthcare facilities.
 
-### Problem Statement
+### The Problem
 
 Healthcare planners in underserved regions face critical challenges:
-- **Data Fragmentation**: Healthcare facility data is scattered and unstructured
-- **Service Gaps**: Difficulty identifying underserved areas ("medical deserts")
-- **Resource Allocation**: Limited tools for optimizing NGO project placement
-- **Data Quality**: Inconsistent facility information and missing data
-- **Analytical Barriers**: Technical expertise required for complex geospatial analysis
+
+- **Data Fragmentation** -- Facility data is scattered across unstructured documents and spreadsheets
+- **Invisible Service Gaps** -- Difficulty identifying underserved areas ("medical deserts")
+- **Poor Resource Allocation** -- Limited tools for optimizing NGO project placement
+- **Data Quality Issues** -- Inconsistent facility information, missing fields, unverified claims
+- **Analytical Barriers** -- Complex geospatial and medical analysis requires technical expertise
 
 ### Our Solution
 
-An AI agent that speaks natural language, understands medical terminology, and provides instant insights:
-- 🗣️ **Natural Language Interface**: Ask questions like "Where are cardiology medical deserts?"
-- 🧠 **Medical Intelligence**: Automatically expands medical terms and validates data
-- 📊 **Multi-Source Analysis**: Combines structured data, semantic search, geospatial analysis, and WHO benchmarks
-- 🗺️ **Interactive Visualization**: Real-time map highlighting of facilities and service gaps
-- 🔍 **Citation Tracking**: Every claim backed by source evidence
-- ⚡ **Self-Correcting**: Quality gate ensures accurate, complete responses
+An AI agent that understands natural language and medical terminology to provide instant, cited insights:
+
+- **Natural Language Interface** -- Ask questions like _"Where are the cardiology medical deserts?"_
+- **Medical Intelligence** -- Automatically expands terms (_"heart doctor"_ &rarr; _"cardiology"_) and validates data
+- **Multi-Source Analysis** -- Combines SQL queries, semantic search, geospatial analysis, and WHO benchmarks
+- **Interactive Visualization** -- Real-time map highlighting facilities and service gaps
+- **Intelligent Document Parsing** -- Extract structured data from PDFs, images, and unstructured text
+- **Citation Tracking** -- Every claim backed by source evidence with row-level provenance
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🤖 Intelligent Query Processing
+### Intelligent Query Processing
 
-- **Multi-Agent Orchestration**: Parallel execution of specialized agents (Text2SQL, Vector Search, Geospatial, External Data)
-- **Medical Term Expansion**: Understands informal queries ("heart doctor" → "cardiology")
-- **Intent Classification**: Automatically categorizes queries into 11 categories
-- **Query Decomposition**: Breaks complex questions into atomic sub-tasks
+- **Multi-Agent Pipeline** -- Specialized agents (Text2SQL, Vector Search, Geospatial, External Data) work in parallel
+- **Medical Term Expansion** -- Understands informal queries and maps them to clinical terminology
+- **Intent Classification** -- Automatically categorizes queries into 11 types for optimal routing
+- **Quality Gate** -- Self-correcting feedback loop ensures accurate, complete responses
 
-### 🏥 Healthcare-Specific Capabilities
+### Healthcare-Specific Capabilities
 
-- **Medical Desert Detection**: Identifies underserved geographic areas by specialty
-- **Anomaly Detection**: Flags data quality issues (e.g., cardiology without equipment)
-- **WHO Benchmarking**: Compares metrics against international guidelines
-- **Workforce Analysis**: Doctor-to-bed ratios, specialist distribution
-- **NGO Coordination**: Identifies overlapping projects and coverage gaps
+- **Medical Desert Detection** -- Identifies underserved geographic areas by specialty
+- **Anomaly Detection** -- Flags data quality issues (e.g., cardiology claims without equipment)
+- **WHO Benchmarking** -- Compares metrics against international guidelines
+- **Workforce Analysis** -- Doctor-to-bed ratios, specialist distribution, staffing levels
+- **NGO Coordination** -- Identifies overlapping projects and coverage gaps
 
-### 🗺️ Geospatial Intelligence
+### Geospatial Intelligence
 
-- **Distance Calculations**: Find nearest facilities by specialty
-- **Coverage Analysis**: Identify areas beyond X km from any facility
-- **Regional Comparisons**: Compare service availability across districts
-- **Population Integration**: Factor in demographic data for need assessment
+- **Distance Calculations** -- Find nearest facilities by specialty
+- **Coverage Analysis** -- Identify areas beyond X km from any facility
+- **Regional Comparisons** -- Compare service availability across districts
+- **Population Integration** -- Factor in demographic data for need assessment
 
-### 🔬 Data Quality & Validation
+### Intelligent Document Parsing (IDP)
 
-- **Evidence-Based Validation**: Cross-references claims against actual facility data
-- **Anomaly Flagging**: Detects inconsistent or suspicious entries
-- **Citation Tracking**: Full provenance for every data point in responses
-- **Quality Gate**: Self-correcting feedback loop ensures response quality
+- **Multi-Format Extraction** -- Process PDFs, images, and free-form text
+- **Confidence Scoring** -- Per-field confidence scores for extracted data
+- **Verification Workflow** -- Split-view interface for human review of AI-extracted data
+- **Deduplication** -- Embedding-based duplicate detection with LLM-assisted merging
 
-### 💻 User Interfaces
+### User Interfaces
 
-- **Interactive Map**: Next.js + MapLibre GL for visual exploration
-- **REST API**: FastAPI backend for integration with other systems
-- **CLI**: Rich terminal interface for power users and testing
-- **Real-Time Chat**: Conversational interface with pipeline visibility
+| Interface | Description | Port |
+|-----------|-------------|------|
+| **HealthSync App** | Admin dashboard for data management, verification, and analytics | `3000` |
+| **Map Explorer** | Interactive map with chat panel for visual exploration | `3001` |
+| **REST API** | FastAPI backend with Swagger docs | `8000` |
+| **CLI** | Rich terminal interface for power users | -- |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-### 6-Layer LangGraph Pipeline
+### AI Pipeline
+
+The system uses a **LangGraph-based pipeline** with two modes:
+
+**Lite Pipeline** (default, 2 LLM calls) -- Used in production for fast responses:
+
+```
+User Query → Text2SQL + Synthesis → Response
+```
+
+**Full Pipeline** (6 layers, 8+ LLM calls) -- Available for deep analysis:
 
 ```mermaid
 graph TD
@@ -121,113 +139,136 @@ graph TD
     I -->|Complete| J[Final Response]
 ```
 
-### Layer Descriptions
+### System Architecture
 
-| Layer | Component | Purpose | Key Technologies |
-|-------|-----------|---------|-----------------|
-| **1** | Intent Classifier | Categorize query & select agents | GPT-4o, Pydantic |
-| **2** | Query Planner | Expand medical terms, decompose tasks | GPT-4o, Medical Ontology |
-| **3a** | Text2SQL Agent | Structured queries on facility DB | DuckDB, SQL generation |
-| **3b** | Vector Search Agent | Semantic search on free-form text | FAISS, OpenAI embeddings |
-| **3c** | Geospatial Agent | Distance calculations, coverage gaps | Geopy, Haversine |
-| **3d** | External Data Agent | WHO guidelines, population data | External APIs (mocked) |
-| **4** | Medical Reasoner | Validate claims, detect anomalies | GPT-4o, Clinical logic |
-| **5** | Synthesizer | Generate natural language answer | GPT-4o, Citation tracking |
-| **6** | Quality Gate | Check completeness, trigger refinement | GPT-4o, Feedback loop |
-
-### Technology Stack
-
-**Backend**
-- **LangGraph**: Multi-agent orchestration and state management
-- **OpenAI GPT-4o**: Natural language understanding and generation
-- **FAISS**: Vector similarity search (Facebook AI Similarity Search)
-- **DuckDB**: In-memory SQL database for rapid analytics
-- **FastAPI**: Modern Python API framework with automatic OpenAPI docs
-- **Pydantic**: Data validation and settings management
-
-**Frontend**
-- **Next.js 15**: React framework with App Router
-- **TypeScript**: Type-safe JavaScript
-- **MapLibre GL**: Interactive map visualization
-- **Tailwind CSS**: Utility-first styling
-
-**Data & Storage**
-- **CSV Dataset**: 987 healthcare facilities (Ghana v0.3)
-- **FAISS Index**: Cached vector embeddings for semantic search
-- **PostgreSQL**: Optional production database (DuckDB for dev)
+```
+                    ┌─────────────────────────────────────────┐
+                    │              Frontend Layer              │
+                    │                                         │
+                    │  ┌──────────────┐  ┌─────────────────┐  │
+                    │  │ HealthSync   │  │  Map Explorer   │  │
+                    │  │ (Vite+React) │  │  (Next.js 15)   │  │
+                    │  └──────┬───────┘  └────────┬────────┘  │
+                    └─────────┼───────────────────┼───────────┘
+                              │                   │
+                    ┌─────────┼───────────────────┼───────────┐
+                    │         ▼      FastAPI       ▼          │
+                    │  ┌────────────┬──────────┬───────────┐  │
+                    │  │ CRUD API   │ Query API│  IDP API  │  │
+                    │  └────────────┴──────────┴───────────┘  │
+                    └─────────────────────┬───────────────────┘
+                                          │
+                    ┌─────────────────────┼───────────────────┐
+                    │         AI Pipeline │(LangGraph)        │
+                    │                     ▼                   │
+                    │  ┌─────────────────────────────────┐    │
+                    │  │  Text2SQL · Vector Search        │    │
+                    │  │  Geospatial · Medical Reasoning  │    │
+                    │  └─────────────────────────────────┘    │
+                    └─────────────────────┬───────────────────┘
+                                          │
+                    ┌─────────────────────┼───────────────────┐
+                    │         Data Layer  │                    │
+                    │    ┌────────┐  ┌────┴────┐  ┌────────┐  │
+                    │    │ SQLite │  │  FAISS  │  │  CSV   │  │
+                    │    │ /DuckDB│  │ Vectors │  │ Source │  │
+                    │    └────────┘  └─────────┘  └────────┘  │
+                    └─────────────────────────────────────────┘
+```
 
 ---
 
-## 🚀 Quick Start
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **AI/ML** | LangGraph, OpenAI GPT-4o, FAISS, LangChain, Pydantic |
+| **Backend** | FastAPI, DuckDB/SQLite (dev), PostgreSQL (prod) |
+| **Frontend** | Next.js 15, Vite + React, Tailwind CSS, shadcn/ui, Leaflet |
+| **Data** | 987 Ghana healthcare facilities (Virtue Foundation dataset) |
+| **DevOps** | Task runner, Docker (optional), MLflow tracing (optional) |
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- **Python**: 3.10 or higher
-- **Node.js**: 18 or higher (for frontend)
-- **OpenAI API Key**: Required for LLM operations
+- **Python** 3.10+
+- **Node.js** 18+
+- **OpenAI API Key**
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/virtue-foundation/ai-healthcare-agent.git
-   cd ai-healthcare-agent
+   git clone <repo-url>
+   cd Ai_for_global_healthcare_access
    ```
 
 2. **Set up Python environment**
    ```bash
-   # Create virtual environment
    python -m venv .venv
-   
-   # Activate (Windows)
+
+   # Windows
    .venv\Scripts\activate
-   
-   # Activate (macOS/Linux)
+
+   # macOS/Linux
    source .venv/bin/activate
-   
-   # Install dependencies
+
    pip install -e .
    ```
 
 3. **Configure environment variables**
    ```bash
-   # Copy example .env file
    cp .env.example .env
-   
    # Edit .env and add your OpenAI API key
-   OPENAI_API_KEY=sk-your-key-here
    ```
 
-4. **Initialize data layer**
+4. **Install frontend dependencies**
    ```bash
-   python main.py --init
+   cd map && npm install && cd ..
+   cd healthsync-app && npm install && cd ..
    ```
-   This loads the dataset into DuckDB and builds the FAISS vector index (~2-3 seconds).
 
-5. **Start the API server**
-   ```bash
-   uvicorn api.server:app --reload --host 0.0.0.0 --port 8000
-   ```
-   API available at: http://localhost:8000
-   
-   Interactive docs: http://localhost:8000/api/docs
+### Running the Application
 
-6. **Start the frontend** (optional, separate terminal)
-   ```bash
-   cd map
-   npm install
-   npm run dev
-   ```
-   Frontend available at: http://localhost:3000
+**Option A: Start everything at once** (requires [Task](https://taskfile.dev/)):
+```bash
+task dev
+```
+This starts all three services in parallel:
+| Service | URL |
+|---------|-----|
+| HealthSync App | http://localhost:3000 |
+| Map Explorer | http://localhost:3001 |
+| Backend API | http://localhost:8000/docs |
+
+**Option B: Start services individually:**
+```bash
+# Terminal 1 — Backend API
+uvicorn api.server:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 — HealthSync App
+cd healthsync-app && npm run dev -- --port 3000
+
+# Terminal 3 — Map Explorer
+cd map && npm run dev -- -p 3001
+```
+
+**Option C: CLI only** (no frontend needed):
+```bash
+python main.py
+```
 
 ---
 
-## 💡 Usage
+## Usage
 
 ### CLI Interface
 
 ```bash
-# Interactive mode (REPL)
+# Interactive REPL
 python main.py
 
 # Ask a question
@@ -243,383 +284,308 @@ python main.py --verbose
 ### REST API
 
 ```bash
-# Example: POST query to API
+# Query the AI agent
 curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"question": "How many hospitals have cardiology?"}'
-
-# Response includes:
-# - synthesis: Natural language answer
-# - citations: Source evidence
-# - facility_names: Facilities to highlight on map
-# - filters: Map filter parameters
-# - metadata: Intent, agents used, timing
 ```
 
-### Python API
+### Data Ingestion
 
-```python
-from src.graph import initialize_data, run_query
-
-# One-time setup
-initialize_data()
-
-# Process a query
-result = run_query("How many hospitals have cardiology?")
-
-print(result["synthesis"])  # Natural language answer
-print(result["citations"])  # Source citations
-print(result["intent"])     # Query category
-print(result["required_agents"])  # Agents used
+```bash
+# Ingest a CSV file into the database
+python scripts/run_ingest.py "ghana_dataset/Virtue Foundation Ghana v0.3 - Sheet1.csv" --limit 10
 ```
 
-### Frontend Interface
+### Map Data Preparation
 
-1. Open http://localhost:3000
-2. Type your question in the chat panel
-3. View results on the interactive map
-4. Explore citations and pipeline metadata
+```bash
+# Generate JSON files for the map frontend
+python scripts/prepare_map_data.py
+```
 
 ---
 
-## 📚 API Documentation
+## API Reference
 
-### Endpoints
+### Query Endpoint
 
-#### `POST /api/query`
+**`POST /api/query`** -- Process a natural language healthcare query.
 
-Process a natural language healthcare query.
-
-**Request:**
 ```json
-{
-  "question": "How many hospitals have cardiology?"
-}
-```
+// Request
+{ "question": "How many hospitals have cardiology?" }
 
-**Response:**
-```json
+// Response
 {
-  "synthesis": "There are 23 hospitals offering cardiology services in Ghana...",
-  "citations": [
-    {
-      "facility_name": "Korle Bu Teaching Hospital",
-      "data_source": "text2sql",
-      "evidence": "Listed specialties include: cardiology, surgery, pediatrics"
-    }
-  ],
+  "synthesis": "There are 23 hospitals offering cardiology services...",
+  "citations": [{ "facility_name": "Korle Bu Teaching Hospital", "data_source": "text2sql", "evidence": "..." }],
   "intent": "basic_lookup",
   "required_agents": ["text2sql", "vector_search"],
-  "iteration": 1,
   "elapsed": 4.2,
-  "filters": {
-    "specialty": "cardiology",
-    "types": ["hospital"]
-  },
-  "facility_names": ["Korle Bu Teaching Hospital", "..."],
-  "sql_results": {...},
-  "expanded_terms": ["cardiology"]
+  "filters": { "specialty": "cardiology", "types": ["hospital"] },
+  "facility_names": ["Korle Bu Teaching Hospital", "..."]
 }
 ```
 
-#### `GET /health`
+### CRUD Endpoints
 
-Health check endpoint for monitoring.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/crud/organizations` | List all organizations |
+| GET | `/api/crud/organizations/:id` | Get organization by ID |
+| POST | `/api/crud/organizations` | Create organization |
+| PUT | `/api/crud/organizations/:id` | Update organization |
+| GET | `/api/crud/dashboard/stats` | Dashboard statistics |
+| GET | `/api/crud/activity-logs` | Activity log entries |
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "vf-healthcare-agent"
-}
-```
+### IDP Endpoints
 
-### Interactive API Docs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/idp/extract` | Extract structured data from documents |
 
-- **Swagger UI**: http://localhost:8000/api/docs
-- **ReDoc**: http://localhost:8000/api/redoc
+### Utility
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/docs` | Swagger UI |
+| GET | `/api/redoc` | ReDoc |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-vf-healthcare-agent/
-├── .cursor/
-│   └── rules/
-│       └── project.md          # Project rules for AI assistance
+.
+├── api/                              # FastAPI REST API
+│   ├── server.py                     #   Main app & query endpoint
+│   ├── schemas.py                    #   Request/response models
+│   ├── crud_router.py                #   CRUD endpoints (organizations, stats)
+│   └── idp_router.py                 #   Document parsing endpoint
 │
-├── api/
-│   ├── server.py               # FastAPI application
-│   └── __init__.py
-│
-├── src/                        # Core intelligence pipeline
-│   ├── graph.py                # LangGraph pipeline assembly
-│   ├── state.py                # Shared state definition
-│   ├── config.py               # Configuration management
+├── src/                              # Core AI pipeline
+│   ├── config.py                     #   Configuration (env vars, paths)
+│   ├── state.py                      #   LangGraph state definition
+│   ├── llm.py                        #   LLM client wrapper
+│   ├── graph.py                      #   Full 6-layer pipeline
+│   ├── graph_lite.py                 #   Lite 2-call pipeline (default)
 │   │
-│   ├── nodes/                  # Pipeline layers
-│   │   ├── intent_classifier.py
-│   │   ├── query_planner.py
-│   │   ├── text2sql_agent.py
-│   │   ├── vector_search_agent.py
-│   │   ├── geospatial_agent.py
-│   │   ├── external_data_agent.py
-│   │   ├── medical_reasoner.py
-│   │   ├── synthesizer.py
-│   │   └── quality_gate.py
+│   ├── nodes/                        #   Pipeline layer implementations
+│   │   ├── intent_classifier.py      #     Query categorization
+│   │   ├── query_planner.py          #     Medical term expansion
+│   │   ├── text2sql_agent.py         #     SQL query generation
+│   │   ├── vector_search_agent.py    #     Semantic search (FAISS)
+│   │   ├── geospatial_agent.py       #     Distance & coverage analysis
+│   │   ├── external_data_agent.py    #     WHO guidelines, population data
+│   │   ├── medical_reasoner.py       #     Validation & anomaly detection
+│   │   ├── synthesizer.py            #     Answer generation + citations
+│   │   └── quality_gate.py           #     Completeness check & refinement
 │   │
-│   └── tools/                  # Utility functions
-│       ├── sql_executor.py     # DuckDB operations
-│       ├── vector_search.py    # FAISS operations
-│       ├── geocoding.py        # Geospatial utilities
-│       └── medical_hierarchy.py # Medical ontology
+│   ├── tools/                        #   Utility functions
+│   │   ├── sql_executor.py           #     DuckDB/SQLite operations
+│   │   ├── vector_search.py          #     FAISS vector operations
+│   │   ├── geocoding.py              #     Geospatial utilities
+│   │   └── medical_hierarchy.py      #     Medical ontology/term expansion
+│   │
+│   ├── planning/                     #   Query planning engine
+│   │   ├── engine.py                 #     Planning logic
+│   │   └── prompts.py                #     Planning prompts
+│   │
+│   ├── idp/                          #   Intelligent Document Parsing
+│   │   └── engine.py                 #     Extraction engine
+│   │
+│   └── datacleaning/                 #   Data ingestion pipeline
+│       ├── pipeline.py               #     Main orchestration
+│       ├── parser.py                 #     CSV parsing
+│       ├── models.py                 #     Data models
+│       ├── db.py                     #     Database connection utilities
+│       ├── merge_agent.py            #     LLM-based duplicate merging
+│       ├── identity_embedding.py     #     Embedding generation
+│       ├── embedding_store.py        #     FAISS embedding storage
+│       └── geocode.py                #     Address geocoding
 │
-├── map/                        # Next.js frontend
+├── map/                              # Map Explorer (Next.js 15)
 │   ├── app/
-│   │   ├── components/
-│   │   │   ├── MapView.tsx
-│   │   │   ├── ChatPanel.tsx
-│   │   │   ├── LayerPanel.tsx
-│   │   │   └── Sidebar.tsx
-│   │   ├── page.tsx
-│   │   └── layout.tsx
-│   ├── public/
+│   │   ├── page.tsx                  #   Main map page
+│   │   ├── layout.tsx                #   Root layout
+│   │   └── components/
+│   │       ├── MapView.tsx           #     Leaflet map component
+│   │       ├── ChatPanel.tsx         #     AI query interface
+│   │       ├── Sidebar.tsx           #     Navigation sidebar
+│   │       ├── FacilitiesPanel.tsx   #     Facility list
+│   │       ├── LayerPanel.tsx        #     Map layer controls
+│   │       └── CoverageInfoCard.tsx  #     Coverage statistics
 │   └── package.json
 │
-├── prompts_and_pydantic_models/ # Structured outputs
-│   ├── medical_specialties.py
-│   ├── organization_extraction.py
-│   └── facility_and_ngo_fields.py
+├── healthsync-app/                   # HealthSync Dashboard (Vite + React)
+│   ├── src/
+│   │   ├── pages/                    #   Page components
+│   │   │   ├── Dashboard.tsx         #     Stats & analytics
+│   │   │   ├── DatabaseView.tsx      #     Organization table
+│   │   │   ├── Verification.tsx      #     AI data verification
+│   │   │   ├── BulkUpload.tsx        #     CSV/PDF upload
+│   │   │   ├── FacilitySettings.tsx  #     Facility detail/edit
+│   │   │   └── ActivityLogs.tsx      #     Activity log viewer
+│   │   ├── components/               #   Reusable components + shadcn/ui
+│   │   ├── i18n/                     #   Internationalization (EN, AR, DE, FR)
+│   │   └── contexts/                 #   React context (app state)
+│   └── package.json
 │
-├── data/
-│   └── vector_store/           # FAISS index cache
+├── ghana_dataset/                    # Source data
+│   ├── health.db                     #   SQLite database (987 facilities)
+│   └── *.csv                         #   Source CSV dataset
 │
-├── ghana_dataset/              # Source data
-│   └── Virtue Foundation Ghana v0.3 - Sheet1.csv
+├── schema/                           # Database schemas
+│   ├── 001_initial.sql               #   PostgreSQL (with pgvector)
+│   └── 001_sqlite.sql                #   SQLite
 │
-├── scripts/
-│   └── prepare_map_data.py     # Data preparation utilities
+├── scripts/                          # Utility scripts
+│   ├── run_ingest.py                 #   CSV ingestion
+│   └── prepare_map_data.py           #   Generate map JSON data
 │
-├── main.py                     # CLI entry point
-├── pyproject.toml              # Python dependencies
-├── .env                        # Environment variables (not committed)
-├── .gitignore
-└── README.md
+├── prompts_and_pydantic_models/      # LLM prompt templates & schemas
+│   ├── organization_extraction.py    #   Organization extraction
+│   ├── facility_and_ngo_fields.py    #   Field extraction
+│   ├── medical_specialties.py        #   Specialty extraction
+│   └── free_form.py                  #   Free-form text extraction
+│
+├── documentation/                    # Project documentation
+│   ├── Ingest-walkthrough.md         #   Data ingestion guide
+│   ├── Question Reference.md        #   Query examples for testing
+│   ├── sql-integration-guide.md      #   Frontend ↔ DB integration guide
+│   └── Theme - *.md                  #   Hackathon challenge description
+│
+├── main.py                           # CLI entry point
+├── pyproject.toml                    # Python dependencies
+├── Taskfile.yml                      # Task runner (starts all services)
+├── .env.example                      # Environment variable template
+└── .gitignore
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file from the template:
 
 ```bash
-# OpenAI Configuration (Required)
-OPENAI_API_KEY=sk-your-key-here
-OPENAI_MODEL=gpt-4o                    # Default: gpt-4o
-EMBEDDING_MODEL=text-embedding-3-small # Default: text-embedding-3-small
-
-# Database Configuration
-USE_MOCK_DB=true                       # Use DuckDB (true) or PostgreSQL (false)
-DATABASE_URL=                          # PostgreSQL connection string (optional)
-
-# Tracing (Optional)
-ENABLE_TRACING=false                   # MLflow tracing for debugging
+cp .env.example .env
 ```
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes | -- | OpenAI API key |
+| `OPENAI_MODEL` | No | `gpt-4o` | LLM model name |
+| `EMBEDDING_MODEL` | No | `text-embedding-3-small` | Embedding model |
+| `USE_MOCK_DB` | No | `true` | Use DuckDB/SQLite (`true`) or PostgreSQL (`false`) |
+| `DATABASE_URL` | No | -- | PostgreSQL connection string |
+| `ENABLE_TRACING` | No | `false` | Enable MLflow tracing |
 
 ### Pipeline Tuning
 
-Edit `src/config.py`:
+Key parameters in `src/config.py`:
 
 ```python
-# Maximum quality gate refinement iterations
-MAX_QUALITY_ITERATIONS = 3
-
-# Vector search configuration
-EMBEDDING_DIMENSION = 1536  # text-embedding-3-small
-TOP_K_VECTOR_RESULTS = 15   # Number of semantic matches to retrieve
+MAX_QUALITY_ITERATIONS = 3     # Max quality gate refinement loops
+EMBEDDING_DIMENSION = 1536     # text-embedding-3-small dimension
+TOP_K_VECTOR_RESULTS = 15      # Semantic search results to retrieve
 ```
 
 ---
 
-## 🛠️ Development
+## Example Queries
 
-### Adding a New Agent
+**Basic Lookup**
+- _"How many hospitals have cardiology?"_
+- _"List all facilities in the Greater Accra region"_
+- _"What services does Korle Bu Teaching Hospital offer?"_
 
-1. Create `src/nodes/new_agent.py`:
-   ```python
-   from src.state import AgentState
-   from typing import Dict, Any
-   
-   def execute_new_agent(state: AgentState) -> Dict[str, Any]:
-       """Execute new agent logic."""
-       query = state["query"]
-       # Your agent logic here
-       return {"new_results": results}
-   ```
+**Geospatial Analysis**
+- _"Where are the medical deserts for ophthalmology?"_
+- _"Which region has the most clinics?"_
+- _"Find hospitals within 50km of Kumasi"_
 
-2. Register in `src/graph.py`:
-   ```python
-   from src.nodes.new_agent import execute_new_agent
-   
-   graph.add_node("new_agent", execute_new_agent)
-   ```
+**Data Validation**
+- _"Which facilities claim cardiology but lack equipment?"_
+- _"Find hospitals without emergency services"_
+- _"Show facilities with missing specialty data"_
 
-3. Update routing:
-   ```python
-   def route_to_agents(state: AgentState) -> List[str]:
-       agent_map = {
-           # ... existing agents
-           "new_agent": "new_agent",
-       }
-   ```
+**Workforce Analysis**
+- _"What is the doctor-to-bed ratio by region?"_
+- _"Which areas have the lowest specialist density?"_
 
-### Running Tests
+**NGO Coordination**
+- _"Where do NGOs have overlapping projects?"_
+- _"Which underserved areas lack NGO coverage?"_
 
-```bash
-# Run all tests (when implemented)
-pytest
+**Benchmarking**
+- _"How does Ghana's specialist ratio compare to WHO guidelines?"_
+- _"Are we meeting WHO standards for maternal care facilities?"_
 
-# Run specific test file
-pytest tests/test_agents.py
+---
 
-# Run with coverage
-pytest --cov=src tests/
-```
+## Documentation
+
+Additional guides are in the [`documentation/`](documentation/) folder:
+
+| Document | Description |
+|----------|-------------|
+| [Ingest Walkthrough](documentation/Ingest-walkthrough.md) | Step-by-step data ingestion guide |
+| [Question Reference](documentation/Question%20Reference.md) | Real-world query examples for testing |
+| [SQL Integration Guide](documentation/sql-integration-guide.md) | Connecting the HealthSync frontend to PostgreSQL |
+| [Ghana Dataset Schema](ghana_dataset/Virtue%20Foundation%20Ghana%20Dataset.md) | Column definitions and data dictionary |
+
+---
+
+## Contributing
+
+We welcome contributions! Here's how:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make your changes with clear commit messages
+4. Ensure code is formatted (`black src/ api/`) and linted (`ruff check src/ api/`)
+5. Submit a Pull Request
 
 ### Code Quality
 
 ```bash
-# Format code
-black src/ api/ main.py
-
-# Type checking
-mypy src/ api/
-
-# Linting
-ruff check src/ api/
+black src/ api/ main.py      # Format
+ruff check src/ api/         # Lint
+mypy src/ api/               # Type check
+pytest                       # Test
 ```
 
 ---
 
-## 🎯 Example Queries
+## Roadmap
 
-### Basic Lookup
-- "How many hospitals have cardiology?"
-- "List all facilities in the Greater Accra region"
-- "What services does Korle Bu Teaching Hospital offer?"
-
-### Geospatial Analysis
-- "Where are the medical deserts for ophthalmology?"
-- "Which region has the most clinics?"
-- "Find hospitals within 50km of Kumasi"
-
-### Data Validation
-- "Which facilities claim cardiology but lack equipment?"
-- "Find hospitals without emergency services"
-- "Show facilities with missing specialty data"
-
-### Workforce Analysis
-- "What is the doctor-to-bed ratio by region?"
-- "Which areas have the lowest specialist density?"
-- "Compare nurse staffing levels across districts"
-
-### NGO Coordination
-- "Where do NGOs have overlapping projects?"
-- "Which underserved areas lack NGO coverage?"
-- "Show regions with high NGO density"
-
-### Benchmarking
-- "How does Ghana's specialist ratio compare to WHO guidelines?"
-- "Are we meeting WHO standards for maternal care facilities?"
-- "Compare our coverage to Sub-Saharan Africa averages"
-
-### Anomaly Detection
-- "Find facilities with unusual patient-to-doctor ratios"
-- "Show hospitals claiming specialties without required equipment"
-- "Identify data quality issues in the dataset"
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Here's how you can help:
-
-### Reporting Issues
-
-- Use GitHub Issues for bug reports and feature requests
-- Include detailed steps to reproduce bugs
-- Provide example queries that demonstrate issues
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with clear commit messages
-4. Add tests for new functionality
-5. Ensure all tests pass and code is formatted
-6. Submit a Pull Request
-
-### Code Review Process
-
-- All PRs require at least one review
-- CI/CD checks must pass (formatting, linting, tests)
-- Documentation must be updated for new features
-- Breaking changes require discussion in issues first
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **Virtue Foundation**: For the mission and healthcare dataset
-- **LangChain/LangGraph**: For the powerful agent orchestration framework
-- **OpenAI**: For GPT-4o and embedding models
-- **Healthcare Planners**: For feedback and real-world requirements
-- **Open Source Community**: For the amazing tools that made this possible
-
----
-
-## 📞 Contact & Support
-
-- **Project Lead**: Virtue Foundation Healthcare Team
-- **Issues**: [GitHub Issues](https://github.com/virtue-foundation/ai-healthcare-agent/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/virtue-foundation/ai-healthcare-agent/discussions)
-
----
-
-## 🗺️ Roadmap
-
-### Phase 1: MVP ✅
-- [x] 6-layer LangGraph pipeline
-- [x] Multi-agent orchestration
-- [x] FastAPI REST API
-- [x] Next.js map frontend
+### Phase 1: MVP (Complete)
+- [x] Multi-agent LangGraph pipeline (full + lite)
+- [x] FastAPI REST API with CRUD and IDP endpoints
+- [x] Next.js map frontend with chat interface
+- [x] HealthSync admin dashboard with verification workflow
+- [x] Data ingestion pipeline with deduplication
+- [x] Ghana dataset (987 facilities)
 - [x] CLI interface
-- [x] Ghana dataset integration
 
 ### Phase 2: Enhancement (In Progress)
 - [ ] PostgreSQL production deployment
+- [ ] Connect HealthSync frontend to live API (remove mock data)
 - [ ] Comprehensive test suite
 - [ ] Performance optimization (caching, query batching)
-- [ ] Enhanced error handling and retry logic
-- [ ] Monitoring and observability (metrics, traces)
+- [ ] Monitoring and observability
 
 ### Phase 3: Scale
 - [ ] Multi-country dataset support
-- [ ] Real-time data ingestion pipeline
+- [ ] Real-time data ingestion
 - [ ] Advanced ML-based anomaly detection
 - [ ] Drive-time isochrone analysis
-- [ ] Mobile app (React Native)
-- [ ] Offline mode for field workers
+- [ ] Mobile app for field workers
 
 ### Phase 4: Intelligence
 - [ ] Predictive modeling (disease outbreak prediction)
@@ -630,10 +596,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+- **[Virtue Foundation](https://virtuefoundation.org/)** -- Mission and healthcare dataset
+- **LangChain / LangGraph** -- Agent orchestration framework
+- **OpenAI** -- GPT-4o and embedding models
+- **Open Source Community** -- The tools that made this possible
+
+---
+
 <div align="center">
 
-**Built with ❤️ for Global Health Equity**
+**Built for Global Health Equity**
 
-[⬆ Back to Top](#-vf-healthcare-intelligence-agent)
+[Back to Top](#vf-healthcare-intelligence-agent)
 
 </div>
