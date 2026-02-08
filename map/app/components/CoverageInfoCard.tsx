@@ -8,23 +8,54 @@ interface Props {
   facilities: Facility[];
 }
 
+// WHO guidelines: analysis uses per_10k; we compare vs per_1k so divide by 10
+function whoPer1k(guidelines: Record<string, number> | undefined, key10k: string, key1k: string, fallback: number): number {
+  if (!guidelines) return fallback;
+  const per10k = guidelines[key10k];
+  if (per10k != null && typeof per10k === "number") return per10k / 10;
+  const per1k = guidelines[key1k];
+  if (per1k != null && typeof per1k === "number") return per1k;
+  return fallback;
+}
+
 export default function CoverageInfoCard({ analysis, facilities }: Props) {
   const stats = useMemo(() => {
-    if (!analysis || facilities.length === 0)
+    const empty = {
+      score: 0,
+      totalFacilities: 0,
+      hospitals: 0,
+      clinics: 0,
+      doctors: 0,
+      beds: 0,
+      deserts: 0,
+      totalPopulation: 0,
+      doctorsPerCapita: 0,
+      bedsPerCapita: 0,
+      regionsServed: 0,
+      totalRegions: 0,
+      noFacilitiesInView: false as boolean,
+    };
+    if (!analysis) return { ...empty };
+
+    const regionPopulation = analysis.regionPopulation ?? {};
+    const totalPopulation = Object.values(regionPopulation).reduce((s: number, v: number) => s + v, 0);
+    const totalRegions = Object.keys(regionPopulation).length;
+    const deserts = (analysis.medicalDeserts ?? []).length;
+    const coverageGrid = analysis.coverageGrid ?? [];
+    const gridTotal = coverageGrid.length;
+    const gridCovered = gridTotal > 0 ? coverageGrid.filter((p) => p.facilityCount > 0).length : 0;
+    const geoScore = gridTotal > 0 ? gridCovered / gridTotal : 0;
+
+    // No facilities in current view (e.g. filters hid everything)
+    if (facilities.length === 0) {
       return {
-        score: 0,
-        totalFacilities: 0,
-        hospitals: 0,
-        clinics: 0,
-        doctors: 0,
-        beds: 0,
-        deserts: 0,
-        totalPopulation: 0,
-        doctorsPerCapita: 0,
-        bedsPerCapita: 0,
-        regionsServed: 0,
-        totalRegions: 0,
+        ...empty,
+        totalPopulation,
+        totalRegions,
+        deserts,
+        noFacilitiesInView: true,
       };
+    }
 
     const hospitals = facilities.filter(
       (f) => f.type === "hospital" && f.orgType === "facility"
@@ -32,64 +63,30 @@ export default function CoverageInfoCard({ analysis, facilities }: Props) {
     const clinics = facilities.filter(
       (f) => f.type === "clinic" && f.orgType === "facility"
     ).length;
-    const doctors = facilities.reduce(
-      (sum, f) => sum + (f.doctors ?? 0),
-      0
-    );
+    const doctors = facilities.reduce((sum, f) => sum + (f.doctors ?? 0), 0);
     const beds = facilities.reduce((sum, f) => sum + (f.beds ?? 0), 0);
+    const regionSet = new Set(facilities.map((f) => f.region).filter(Boolean));
 
-    const totalPopulation = Object.values(
-      analysis.regionPopulation ?? {}
-    ).reduce((s: number, v: number) => s + v, 0);
+    // WHO: support both per_10k (from analysis.json) and per_1000
+    const whoDoctorPer1k = whoPer1k(analysis.whoGuidelines, "doctors_per_10k", "doctors_per_1000", 1);
+    const whoBedsPer1k = whoPer1k(analysis.whoGuidelines, "hospital_beds_per_10k", "beds_per_1000", 3);
 
-    // Regions with at least one facility
-    const regionSet = new Set(
-      facilities.map((f) => f.region).filter(Boolean)
-    );
-    const totalRegions = Object.keys(
-      analysis.regionPopulation ?? {}
-    ).length;
+    const actualDoctorPer1k = totalPopulation > 0 ? (doctors / totalPopulation) * 1000 : 0;
+    const actualBedsPer1k = totalPopulation > 0 ? (beds / totalPopulation) * 1000 : 0;
+    const doctorScore = whoDoctorPer1k > 0 ? Math.min(actualDoctorPer1k / whoDoctorPer1k, 1) : 0;
+    const bedsScore = whoBedsPer1k > 0 ? Math.min(actualBedsPer1k / whoBedsPer1k, 1) : 0;
 
-    // ── Composite coverage score (1–10) ──
-    // Based on WHO guidelines and actual ratios
+    const hospitalPer100k = totalPopulation > 0 ? (hospitals / totalPopulation) * 100000 : 0;
+    const hospitalScore = Math.min(hospitalPer100k / 1, 1);
+    const regionScore = totalRegions > 0 ? regionSet.size / totalRegions : 0;
 
-    // 1. Doctor-to-population ratio (WHO: 1 per 1000)
-    const whoDoctor = analysis.whoGuidelines?.["doctors_per_1000"] ?? 1;
-    const actualDoctorPer1k =
-      totalPopulation > 0 ? (doctors / totalPopulation) * 1000 : 0;
-    const doctorScore = Math.min(actualDoctorPer1k / whoDoctor, 1);
-
-    // 2. Bed-to-population ratio (WHO: 3 per 1000)
-    const whoBeds = analysis.whoGuidelines?.["beds_per_1000"] ?? 3;
-    const actualBedsPer1k =
-      totalPopulation > 0 ? (beds / totalPopulation) * 1000 : 0;
-    const bedsScore = Math.min(actualBedsPer1k / whoBeds, 1);
-
-    // 3. Hospital-to-population ratio (rough: 1 per 100k)
-    const hospitalPer100k =
-      totalPopulation > 0 ? (hospitals / totalPopulation) * 100000 : 0;
-    const hospitalScore = Math.min(hospitalPer100k / 1, 1); // 1 per 100k = ideal
-
-    // 4. Geographic coverage (% of grid points with any facilities nearby)
-    const gridTotal = analysis.coverageGrid.length;
-    const gridCovered = analysis.coverageGrid.filter(
-      (p) => p.facilityCount > 0
-    ).length;
-    const geoScore = gridTotal > 0 ? gridCovered / gridTotal : 0;
-
-    // 5. Regional equity (% of regions that have at least 1 facility)
-    const regionScore =
-      totalRegions > 0 ? regionSet.size / totalRegions : 0;
-
-    // Weighted composite
     const composite =
       doctorScore * 0.25 +
       bedsScore * 0.2 +
       hospitalScore * 0.2 +
       geoScore * 0.2 +
       regionScore * 0.15;
-
-    const score = Math.round(composite * 100) / 10; // 0–10
+    const score = Math.round(composite * 100) / 10;
 
     return {
       score: Math.min(score, 10),
@@ -98,12 +95,13 @@ export default function CoverageInfoCard({ analysis, facilities }: Props) {
       clinics,
       doctors,
       beds,
-      deserts: analysis.medicalDeserts.length,
+      deserts,
       totalPopulation,
       doctorsPerCapita: actualDoctorPer1k,
       bedsPerCapita: actualBedsPer1k,
       regionsServed: regionSet.size,
       totalRegions,
+      noFacilitiesInView: false,
     };
   }, [analysis, facilities]);
 
@@ -163,7 +161,19 @@ export default function CoverageInfoCard({ analysis, facilities }: Props) {
           marginTop: expanded ? "0" : "0",
         }}
       >
-        <div className="coverage-info-label">Healthcare Coverage Index</div>
+        <div className="coverage-info-label">
+          Healthcare Coverage Index
+          {!stats.noFacilitiesInView && stats.totalFacilities > 0 && (
+            <span className="block text-[9px] font-normal text-[#5a6577] mt-0.5">
+              Based on visible facilities
+            </span>
+          )}
+        </div>
+        {stats.noFacilitiesInView && (
+          <p className="text-[10px] text-[#f59e0b] mb-2">
+            No facilities match current filters. Broaden filters to see coverage.
+          </p>
+        )}
 
         {/* Gradient bar with marker */}
         <div className="coverage-info-bar-container">
