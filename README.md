@@ -17,6 +17,7 @@ An agentic AI system that analyzes healthcare facility data, identifies service 
 - [Key Features](#-key-features)
 - [Architecture](#-architecture)
 - [Quick Start](#-quick-start)
+- [Deploy to Databricks](#-deploy-to-databricks)
 - [Usage](#-usage)
 - [API Documentation](#-api-documentation)
 - [Project Structure](#-project-structure)
@@ -219,6 +220,18 @@ graph TD
    npm run dev
    ```
    Frontend available at: http://localhost:3000
+
+---
+
+## Deploy to Databricks
+
+The app can run as a [Databricks App](https://docs.databricks.com/en/dev-tools/databricks-apps/) so users get a single URL for the map and chat UI.
+
+1. **Upload the repo** to your Databricks workspace (e.g. via `databricks sync` or Import).
+2. **Configure the app** in Databricks: set the app’s source path to this repo root. In the app’s environment, set **`NEXT_PUBLIC_API_URL`** to an empty value so the frontend uses relative `/api` (proxied to the FastAPI backend). Optionally set **`DATABRICKS_SECRET_SCOPE`** and store `OPENAI_API_KEY` and `DATABASE_URL` in that scope (see [.env.example](.env.example)).
+3. **Deploy** from the Apps UI or CLI: `databricks apps deploy <app-name> --source-code-path /Workspace/Users/.../this-repo`.
+
+The runtime is defined in [app.yaml](app.yaml): it runs the root `npm run start` script, which starts FastAPI on port 8001 and Next.js on port 8000; Next.js proxies `/api/*` to the backend so one URL serves the full UI.
 
 ---
 
