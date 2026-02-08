@@ -11,6 +11,7 @@ Run:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import sys
@@ -28,7 +29,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from api.schemas import MapFilters, QueryRequest, QueryResponse
-from src.graph import initialize_data, run_query
+from src.graph_lite import initialize_data, run_query
 
 # Configure logging
 logging.basicConfig(
@@ -60,8 +61,8 @@ app = FastAPI(
     title="VF Healthcare Agent API",
     description="AI-powered healthcare intelligence system for global healthcare access",
     version="0.1.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan,
 )
 
@@ -136,19 +137,20 @@ async def health_check() -> Dict[str, str]:
 @app.post("/api/query", response_model=QueryResponse, status_code=status.HTTP_200_OK)
 async def process_query(req: QueryRequest) -> QueryResponse:
     """
-    Process a natural language healthcare query through the LangGraph pipeline.
+    Process a natural language healthcare query through the lite 2-call pipeline.
 
-    Orchestrates a 6-layer AI pipeline: Intent Classification -> Query Planning
-    -> Parallel Retrieval -> Medical Reasoning -> Synthesis -> Quality Gate.
+    The synchronous `run_query` is dispatched to a thread pool so it does NOT
+    block the async event loop.
     """
     logger.info(f"📝 Processing query: {req.question}")
     start_time = time.time()
 
     try:
-        result = run_query(req.question)
+        result = await asyncio.to_thread(run_query, req.question)
         elapsed = time.time() - start_time
 
-        facility_names = _extract_facility_names(result)
+        # graph_lite returns facility_names directly; fall back to SQL extraction
+        facility_names = result.get("facility_names") or _extract_facility_names(result)
         filters = _extract_filters(req.question, result)
 
         logger.info(
@@ -169,6 +171,9 @@ async def process_query(req: QueryRequest) -> QueryResponse:
             filters=filters,
             facility_names=facility_names,
         )
+
+    except HTTPException:
+        raise  # Re-raise FastAPI exceptions as-is
 
     except Exception as e:
         elapsed = time.time() - start_time

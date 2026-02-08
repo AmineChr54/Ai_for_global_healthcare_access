@@ -5,6 +5,12 @@ import type { Facility, ChatMessage } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const SUGGESTIONS = [
+  "Where are the largest cold spots for cataract surgery within 50km?",
+  "Which facilities claim ICU but list no oxygen?",
+  "Show facilities offering pediatric care in Ashanti.",
+];
+
 interface Props {
   messages: ChatMessage[];
   onMessagesChange: (msgs: ChatMessage[]) => void;
@@ -12,7 +18,7 @@ interface Props {
   onHighlight: (names: Set<string>) => void;
   onSelectFacility: (f: Facility | null) => void;
   onApplyFilters: (filters: { specialty?: string; types?: string[] }) => void;
-  onClose: () => void;
+  onOpenSettings: () => void;
 }
 
 function matchFacilityNames(
@@ -22,15 +28,11 @@ function matchFacilityNames(
   const matched = new Set<string>();
   for (const apiName of apiNames) {
     const lower = apiName.toLowerCase().trim();
-    // Exact match first
-    const exact = facilities.find(
-      (f) => f.name.toLowerCase() === lower
-    );
+    const exact = facilities.find((f) => f.name.toLowerCase() === lower);
     if (exact) {
       matched.add(exact.name);
       continue;
     }
-    // Fuzzy: check if facility name contains the API name or vice versa
     const fuzzy = facilities.find(
       (f) =>
         f.name.toLowerCase().includes(lower) ||
@@ -50,7 +52,7 @@ export default function ChatPanel({
   onHighlight,
   onSelectFacility,
   onApplyFilters,
-  onClose,
+  onOpenSettings,
 }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,26 +64,35 @@ export default function ChatPanel({
     }
   }, [messages]);
 
-  const sendQuery = async () => {
-    const question = input.trim();
-    if (!question || loading) return;
+  const sendQuery = async (question?: string) => {
+    const q = (question || input).trim();
+    if (!q || loading) return;
 
     setInput("");
-    const userMsg: ChatMessage = { role: "user", content: question };
+    const userMsg: ChatMessage = { role: "user", content: q };
     const updated = [...messages, userMsg];
     onMessagesChange(updated);
     setLoading(true);
 
     try {
+      // Use AbortController with a generous timeout (pipeline can take
+      // 2-3 minutes on free-tier due to rate-limit backoff).
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300_000); // 5 min
+
       const res = await fetch(`${API_URL}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question: q }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         if (res.status === 429) {
-          throw new Error("Rate limit reached. Please wait ~30 seconds and try again.");
+          throw new Error(
+            "Rate limit reached. Please wait ~30 seconds and try again."
+          );
         }
         const errBody = await res.json().catch(() => null);
         const detail = errBody?.detail || `API error: ${res.status}`;
@@ -90,17 +101,14 @@ export default function ChatPanel({
 
       const data = await res.json();
 
-      // Extract facility names and highlight on map
       const apiNames: string[] = data.facility_names || [];
       const matched = matchFacilityNames(apiNames, facilities);
       onHighlight(matched);
 
-      // Apply filters inferred from the query (if provided)
       if (data.filters) {
         onApplyFilters(data.filters);
       }
 
-      // If we got a single match, select it on the map
       if (matched.size === 1) {
         const name = [...matched][0];
         const fac = facilities.find((f) => f.name === name);
@@ -120,9 +128,21 @@ export default function ChatPanel({
       };
       onMessagesChange([...updated, assistantMsg]);
     } catch (err: any) {
+      let content: string;
+      if (err.name === "AbortError") {
+        content = "**Timeout:** The query took too long. The AI pipeline may be rate-limited. Please try a simpler question or wait a moment.";
+      } else if (
+        err.message?.includes("NetworkError") ||
+        err.message?.includes("Failed to fetch") ||
+        err.message?.includes("fetch")
+      ) {
+        content = "**Connection error:** Could not reach the API server. Make sure it is running on port 8000.";
+      } else {
+        content = `**Error:** ${err.message}`;
+      }
       const errorMsg: ChatMessage = {
         role: "assistant",
-        content: `**Error:** ${err.message}.\n\nMake sure the API server is running:\n\`\`\`\nuvicorn api.server:app --port 8000\n\`\`\``,
+        content,
       };
       onMessagesChange([...updated, errorMsg]);
     } finally {
@@ -131,87 +151,144 @@ export default function ChatPanel({
   };
 
   return (
-    <div className="absolute bottom-20 right-6 z-[1000] w-[440px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+    <div className="w-[300px] shrink-0 bg-[#0f1623] rounded-2xl flex flex-col overflow-hidden border border-[#1c2a3a]">
       {/* Header */}
-      <div className="px-4 py-3 bg-indigo-600 text-white flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
-          <span className="font-semibold text-sm">Healthcare Agent</span>
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#2dd4bf]">
+              Virtue Foundation
+            </div>
+            <h1 className="text-xl font-bold text-white mt-0.5 leading-tight">
+              Living Map
+            </h1>
+            <p className="text-xs text-[#5a6577] mt-1">
+              Ask. See. Verify. Plan.
+            </p>
+          </div>
+          <button
+            onClick={onOpenSettings}
+            className="mt-1 p-2 rounded-lg hover:bg-[#1a2538] transition-colors text-[#5a6577] hover:text-[#8b97a8]"
+            title="Layer settings"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
         </div>
-        <button onClick={onClose} className="hover:bg-indigo-500 rounded p-1 transition-colors">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
       </div>
 
+      {/* Suggestions (always visible at top) */}
+      <div className="px-4 pb-3 space-y-2">
+        {SUGGESTIONS.map((q) => (
+          <button
+            key={q}
+            onClick={() => sendQuery(q)}
+            disabled={loading}
+            className="w-full text-left text-[13px] leading-snug px-3.5 py-2.5 rounded-xl border border-[#1c2a3a] text-[#8b97a8] hover:text-white hover:border-[#2dd4bf]/40 hover:bg-[#2dd4bf]/5 transition-all duration-200 disabled:opacity-40"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div className="mx-4 border-t border-[#1c2a3a]" />
+
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 custom-scrollbar"
+      >
         {messages.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-400 text-sm mb-3">Ask about Ghana healthcare facilities.</p>
-            <p className="text-gray-400 text-xs">Results will be highlighted on the map.</p>
-            <div className="mt-4 space-y-1.5">
-              {[
-                "How many hospitals have cardiology?",
-                "Where are the medical deserts for ophthalmology?",
-                "Which facilities claim surgery but lack equipment?",
-              ].map((q) => (
-                <button
-                  key={q}
-                  onClick={() => { setInput(q); }}
-                  className="block w-full text-left text-xs px-3 py-2 rounded-lg bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 transition-colors"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-center h-full">
+            <p className="text-[#3a4556] text-xs text-center">
+              Ask a question to get started
+            </p>
           </div>
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={i}
+            className={`flex ${
+              msg.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
             <div
-              className={`max-w-[90%] rounded-xl px-3.5 py-2.5 text-sm ${
+              className={`max-w-[92%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 text-gray-800"
+                  ? "bg-[#2dd4bf]/15 text-[#2dd4bf] border border-[#2dd4bf]/20"
+                  : "bg-[#151d2e] text-[#c4cdd9] border border-[#1c2a3a]"
               }`}
             >
               {msg.role === "assistant" ? (
                 <div className="space-y-2">
                   <div
-                    className="prose prose-sm max-w-none prose-headings:text-sm prose-headings:font-bold prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-li:my-0"
+                    className="prose prose-sm prose-invert max-w-none prose-headings:text-sm prose-headings:font-bold prose-headings:text-white prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-li:my-0 prose-strong:text-white"
                     dangerouslySetInnerHTML={{
                       __html: msg.content
-                        .replace(/### (.*)/g, '<h4 class="text-sm font-bold mt-2 mb-1">$1</h4>')
-                        .replace(/## (.*)/g, '<h3 class="text-sm font-bold mt-2 mb-1">$1</h3>')
+                        .replace(
+                          /### (.*)/g,
+                          '<h4 class="text-sm font-bold mt-2 mb-1">$1</h4>'
+                        )
+                        .replace(
+                          /## (.*)/g,
+                          '<h3 class="text-sm font-bold mt-2 mb-1">$1</h3>'
+                        )
                         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
                         .replace(/\n- /g, "<br/>- ")
-                        .replace(/\n\d+\. /g, (m) => "<br/>" + m.trim() + " ")
+                        .replace(
+                          /\n\d+\. /g,
+                          (m) => "<br/>" + m.trim() + " "
+                        )
                         .replace(/\n/g, "<br/>"),
                     }}
                   />
                   {msg.metadata && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <div className="flex flex-wrap gap-1.5 text-xs text-gray-500">
+                    <div className="mt-2 pt-2 border-t border-[#1c2a3a]">
+                      <div className="flex flex-wrap gap-1.5 text-[11px]">
                         {msg.metadata.intent && (
-                          <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                          <span className="bg-[#2dd4bf]/10 text-[#2dd4bf] px-1.5 py-0.5 rounded">
                             {msg.metadata.intent}
                           </span>
                         )}
                         {msg.metadata.agents?.map((a) => (
-                          <span key={a} className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                          <span
+                            key={a}
+                            className="bg-[#1a2538] text-[#6b7a8d] px-1.5 py-0.5 rounded"
+                          >
                             {a}
                           </span>
                         ))}
                         {msg.metadata.elapsed && (
-                          <span className="text-gray-400">{msg.metadata.elapsed}s</span>
+                          <span className="text-[#5a6577]">
+                            {msg.metadata.elapsed}s
+                          </span>
                         )}
                       </div>
-                      {msg.metadata.facilityNames && msg.metadata.facilityNames.length > 0 && (
-                        <div className="mt-1.5 text-xs text-indigo-600">
-                          {msg.metadata.facilityNames.length} facilities highlighted on map
-                        </div>
-                      )}
+                      {msg.metadata.facilityNames &&
+                        msg.metadata.facilityNames.length > 0 && (
+                          <div className="mt-1.5 text-[11px] text-[#2dd4bf]">
+                            {msg.metadata.facilityNames.length} facilities
+                            highlighted on map
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -224,36 +301,52 @@ export default function ChatPanel({
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 rounded-xl px-4 py-3 flex items-center gap-2">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <div className="bg-[#151d2e] border border-[#1c2a3a] rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <div
+                    className="w-1.5 h-1.5 bg-[#2dd4bf] rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 bg-[#2dd4bf] rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 bg-[#2dd4bf] rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
+                <span className="text-[11px] text-[#5a6577]">
+                  Running AI pipeline...
+                </span>
               </div>
-              <span className="text-xs text-gray-500">Analyzing...</span>
+              <p className="text-[10px] text-[#3a4556] mt-1.5">
+                This may take 1-2 minutes on free-tier API keys.
+              </p>
             </div>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-200 bg-white shrink-0">
-        <div className="flex gap-2">
+      <div className="p-3 border-t border-[#1c2a3a]">
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendQuery()}
-            placeholder="Ask about Ghana healthcare..."
+            placeholder="Ask Virtue Agent..."
             disabled={loading}
-            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+            className="flex-1 px-3.5 py-2.5 text-[13px] bg-[#151d2e] border border-[#1c2a3a] rounded-xl text-[#e8edf5] placeholder-[#3a4556] focus:outline-none focus:ring-1 focus:ring-[#2dd4bf]/40 focus:border-[#2dd4bf]/40 disabled:opacity-40 transition-all"
           />
           <button
-            onClick={sendQuery}
+            onClick={() => sendQuery()}
             disabled={loading || !input.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2.5 bg-[#e74c5a] text-white rounded-xl text-[13px] font-semibold hover:bg-[#d43d4b] disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
           >
-            Send
+            Ask
           </button>
         </div>
       </div>

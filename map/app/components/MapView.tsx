@@ -15,12 +15,12 @@ L.Icon.Default.mergeOptions({
 });
 
 const TYPE_COLORS: Record<string, string> = {
-  hospital: "#2563eb",
-  clinic: "#16a34a",
-  doctor: "#9333ea",
-  pharmacy: "#ea580c",
-  dentist: "#0d9488",
-  ngo: "#dc2626",
+  hospital: "#3b82f6",
+  clinic: "#22c55e",
+  doctor: "#a855f7",
+  pharmacy: "#f97316",
+  dentist: "#2dd4bf",
+  ngo: "#ef4444",
 };
 
 function createIcon(type: string, orgType: string, isHighlighted: boolean, hasHighlights: boolean) {
@@ -37,10 +37,10 @@ function createIcon(type: string, orgType: string, isHighlighted: boolean, hasHi
   }
 
   const color = orgType === "ngo" ? TYPE_COLORS.ngo : (TYPE_COLORS[type] || "#6b7280");
-  const opacity = hasHighlights ? 0.25 : 1; // Dim non-highlighted when highlights exist
+  const opacity = hasHighlights ? 0.25 : 1;
   return L.divIcon({
     className: "",
-    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);opacity:${opacity};"></div>`,
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #0f1623;box-shadow:0 0 6px ${color}40, 0 1px 3px rgba(0,0,0,0.5);opacity:${opacity};"></div>`,
     iconSize: [12, 12],
     iconAnchor: [6, 6],
   });
@@ -83,9 +83,10 @@ export default function MapView({
       maxBounds: [[3.5, -4.0], [12.5, 2.5]],
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      maxZoom: 18,
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 19,
+      subdomains: "abcd",
     }).addTo(map);
 
     mapRef.current = map;
@@ -118,7 +119,7 @@ export default function MapView({
         const size = count < 10 ? 36 : count < 50 ? 44 : 52;
         const opacity = hasHighlights ? 0.4 : 1;
         return L.divIcon({
-          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:white;border:2px solid #6366f1;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${count < 10 ? 13 : 12}px;color:#1e293b;box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:${opacity};">${count}</div>`,
+          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#0f1623;border:2px solid #2dd4bf;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${count < 10 ? 13 : 12}px;color:#e8edf5;box-shadow:0 2px 12px rgba(0,0,0,0.4);opacity:${opacity};">${count}</div>`,
           className: "",
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
@@ -138,27 +139,27 @@ export default function MapView({
       });
 
       const highlightBadge = isHighlighted
-        ? `<div style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;margin-bottom:4px;display:inline-block;">CHAT RESULT</div>`
+        ? `<div style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;margin-bottom:4px;display:inline-block;">CHAT RESULT</div>`
         : "";
 
       const specHtml = f.specialties.length
-        ? `<div style="margin-top:4px;font-size:11px;color:#6b7280;">${f.specialties.slice(0, 5).join(", ")}</div>`
+        ? `<div style="margin-top:4px;font-size:11px;color:#6b7a8d;">${f.specialties.slice(0, 5).join(", ")}</div>`
         : "";
       const metaHtml = [
-        f.type && `<span style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;">${f.type}</span>`,
-        f.doctors && `<span style="font-size:11px;">👨‍⚕️ ${f.doctors} doctors</span>`,
-        f.beds && `<span style="font-size:11px;">🛏️ ${f.beds} beds</span>`,
+        f.type && `<span style="background:#1a2538;padding:1px 6px;border-radius:4px;font-size:11px;color:#8b97a8;">${f.type}</span>`,
+        f.doctors && `<span style="font-size:11px;color:#8b97a8;">👨‍⚕️ ${f.doctors} doctors</span>`,
+        f.beds && `<span style="font-size:11px;color:#8b97a8;">🛏️ ${f.beds} beds</span>`,
       ].filter(Boolean).join(" &middot; ");
 
       marker.bindPopup(
         `<div style="min-width:220px;">
           ${highlightBadge}
-          <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${f.name}</div>
-          <div style="font-size:12px;color:#6b7280;">${f.city}${f.region ? ", " + f.region : ""}</div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#e8edf5;">${f.name}</div>
+          <div style="font-size:12px;color:#6b7a8d;">${f.city}${f.region ? ", " + f.region : ""}</div>
           ${metaHtml ? `<div style="margin-top:6px;">${metaHtml}</div>` : ""}
           ${specHtml}
-          ${f.procedures.length ? `<div style="margin-top:4px;font-size:11px;"><b>Procedures:</b> ${f.procedures.slice(0, 3).join("; ")}</div>` : ""}
-          ${f.equipment.length ? `<div style="font-size:11px;"><b>Equipment:</b> ${f.equipment.slice(0, 3).join("; ")}</div>` : ""}
+          ${f.procedures.length ? `<div style="margin-top:4px;font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Procedures:</b> ${f.procedures.slice(0, 3).join("; ")}</div>` : ""}
+          ${f.equipment.length ? `<div style="font-size:11px;color:#8b97a8;"><b style="color:#c4cdd9;">Equipment:</b> ${f.equipment.slice(0, 3).join("; ")}</div>` : ""}
         </div>`,
         { maxWidth: 350 }
       );

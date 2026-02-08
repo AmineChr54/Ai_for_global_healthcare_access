@@ -1,11 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useCallback } from "react";
-import Sidebar from "./components/Sidebar";
-import LayerPanel from "./components/LayerPanel";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import ChatPanel from "./components/ChatPanel";
-import type { Facility, Analysis, LayerState, ChatMessage, QueryFilters } from "@/types";
+import FacilitiesPanel from "./components/FacilitiesPanel";
+import type {
+  Facility,
+  Analysis,
+  LayerState,
+  ChatMessage,
+  QueryFilters,
+} from "@/types";
 
 // Dynamic import for Leaflet (no SSR)
 const MapView = dynamic(() => import("./components/MapView"), { ssr: false });
@@ -21,14 +26,20 @@ export default function Home() {
     new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"])
   );
   const [showNgos, setShowNgos] = useState(true);
-  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
-  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(
+    null
+  );
+  const [equipmentFilters, setEquipmentFilters] = useState<Set<string>>(
+    new Set()
+  );
 
   // Chat + highlight state
-  const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [highlightedNames, setHighlightedNames] = useState<Set<string>>(new Set());
+  const [highlightedNames, setHighlightedNames] = useState<Set<string>>(
+    new Set()
+  );
 
+  // Layer state
   const [layers, setLayers] = useState<LayerState>({
     showFacilities: true,
     showDeserts: false,
@@ -38,17 +49,20 @@ export default function Home() {
     coverageRadius: 50,
     populationThreshold: 50000,
   });
+  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
 
   const [dataError, setDataError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/data/facilities.json").then((r) => {
-        if (!r.ok) throw new Error(`Failed to load facilities.json (${r.status})`);
+        if (!r.ok)
+          throw new Error(`Failed to load facilities.json (${r.status})`);
         return r.json();
       }),
       fetch("/data/analysis.json").then((r) => {
-        if (!r.ok) throw new Error(`Failed to load analysis.json (${r.status})`);
+        if (!r.ok)
+          throw new Error(`Failed to load analysis.json (${r.status})`);
         return r.json();
       }),
     ])
@@ -64,45 +78,89 @@ export default function Home() {
       });
   }, []);
 
-  // Clear highlights
   const clearHighlights = useCallback(() => {
     setHighlightedNames(new Set());
   }, []);
 
   const applyQueryFilters = useCallback((filters: QueryFilters) => {
-    // Set specialty filter (or clear it if the query doesn't mention one)
     setSelectedSpecialty(filters.specialty || "");
-
-    // Set type filter: if the query mentions specific types, restrict to those;
-    // otherwise reset to show all types
     if (filters.types && filters.types.length > 0) {
       setSelectedTypes(new Set(filters.types));
     } else {
-      setSelectedTypes(new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"]));
+      setSelectedTypes(
+        new Set(["hospital", "clinic", "doctor", "pharmacy", "dentist"])
+      );
     }
   }, []);
 
   // Filtered facilities
-  const filtered = facilities.filter((f) => {
-    if (search && !f.name.toLowerCase().includes(search.toLowerCase()) && !f.city.toLowerCase().includes(search.toLowerCase())) return false;
-    if (selectedSpecialty && !f.specialties.includes(selectedSpecialty)) return false;
-    if (f.orgType === "ngo") return showNgos;
-    if (f.type && !selectedTypes.has(f.type)) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return facilities.filter((f) => {
+      if (
+        search &&
+        !f.name.toLowerCase().includes(search.toLowerCase()) &&
+        !f.city.toLowerCase().includes(search.toLowerCase())
+      )
+        return false;
+      if (selectedSpecialty && !f.specialties.includes(selectedSpecialty))
+        return false;
+      if (f.orgType === "ngo") return showNgos;
+      if (f.type && !selectedTypes.has(f.type)) return false;
 
-  const allSpecialties = analysis
-    ? Object.entries(analysis.specialtyDistribution)
-        .sort((a, b) => b[1].total - a[1].total)
-        .map(([k]) => k)
-    : [];
+      // Equipment filters
+      if (equipmentFilters.size > 0) {
+        const equipLower = [
+          ...f.equipment.map((e) => e.toLowerCase()),
+          ...f.capabilities.map((c) => c.toLowerCase()),
+        ];
+        if (equipmentFilters.has("oxygen")) {
+          if (!equipLower.some((e) => e.includes("oxygen"))) return false;
+        }
+        if (equipmentFilters.has("icu")) {
+          if (
+            !equipLower.some(
+              (e) =>
+                e.includes("icu") ||
+                e.includes("intensive care") ||
+                e.includes("critical care")
+            )
+          )
+            return false;
+        }
+        if (equipmentFilters.has("anomalies")) {
+          // Show facilities with potential anomalies (e.g., claim specialties but lack equipment)
+          const hasSpecialties = f.specialties.length > 0;
+          const hasEquipment = f.equipment.length > 0;
+          if (!(hasSpecialties && !hasEquipment)) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    facilities,
+    search,
+    selectedSpecialty,
+    selectedTypes,
+    showNgos,
+    equipmentFilters,
+  ]);
+
+  const allSpecialties = useMemo(() => {
+    if (!analysis) return [];
+    return Object.entries(analysis.specialtyDistribution)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([k]) => k);
+  }, [analysis]);
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-[#080c14]">
         <div className="text-center">
-          <div className="mb-4 h-12 w-12 mx-auto animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
-          <p className="text-lg font-medium text-gray-600">Loading Ghana healthcare data...</p>
+          <div className="mb-4 h-12 w-12 mx-auto animate-spin rounded-full border-4 border-[#1c2a3a] border-t-[#2dd4bf]" />
+          <p className="text-sm font-medium text-[#5a6577]">
+            Loading Ghana healthcare data...
+          </p>
         </div>
       </div>
     );
@@ -110,109 +168,244 @@ export default function Home() {
 
   if (dataError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-lg border border-gray-200">
+      <div className="flex h-screen items-center justify-center bg-[#080c14]">
+        <div className="text-center max-w-md p-8 bg-[#0f1623] rounded-2xl border border-[#1c2a3a]">
           <div className="text-4xl mb-4">⚠️</div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Data Files Missing</h2>
-          <p className="text-sm text-gray-600 mb-4">{dataError}</p>
-          <div className="bg-gray-900 text-gray-100 rounded-lg p-4 text-left text-xs font-mono">
-            <p className="text-gray-400 mb-1"># Generate the required data files:</p>
-            <p>python scripts/prepare_map_data.py</p>
-            <p className="text-gray-400 mt-3 mb-1"># Then restart the frontend:</p>
-            <p>cd map && npm run dev</p>
+          <h2 className="text-lg font-bold text-white mb-2">
+            Data Files Missing
+          </h2>
+          <p className="text-sm text-[#8b97a8] mb-4">{dataError}</p>
+          <div className="bg-[#080c14] text-[#8b97a8] rounded-lg p-4 text-left text-xs font-mono border border-[#1c2a3a]">
+            <p className="text-[#5a6577] mb-1">
+              # Generate the required data files:
+            </p>
+            <p className="text-[#2dd4bf]">python scripts/prepare_map_data.py</p>
+            <p className="text-[#5a6577] mt-3 mb-1"># Then restart the frontend:</p>
+            <p className="text-[#2dd4bf]">cd map && npm run dev</p>
           </div>
-          <p className="text-xs text-gray-400 mt-4">
-            This generates <code className="bg-gray-100 px-1 rounded">facilities.json</code> and{" "}
-            <code className="bg-gray-100 px-1 rounded">analysis.json</code> in <code className="bg-gray-100 px-1 rounded">map/public/data/</code>
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Left Sidebar */}
-      <Sidebar
-        facilities={filtered}
-        allFacilities={facilities}
-        search={search}
-        onSearch={setSearch}
-        selectedSpecialty={selectedSpecialty}
-        onSpecialtyChange={setSelectedSpecialty}
-        allSpecialties={allSpecialties}
-        selectedTypes={selectedTypes}
-        onTypesChange={setSelectedTypes}
-        showNgos={showNgos}
-        onNgosChange={setShowNgos}
-        selectedFacility={selectedFacility}
+    <div className="h-screen bg-[#080c14] flex gap-3 p-3 overflow-hidden">
+      {/* Left: Chat Panel */}
+      <ChatPanel
+        messages={chatMessages}
+        onMessagesChange={setChatMessages}
+        facilities={facilities}
+        onHighlight={setHighlightedNames}
         onSelectFacility={setSelectedFacility}
-        analysis={analysis}
-        highlightedNames={highlightedNames}
-        onClearHighlights={clearHighlights}
+        onApplyFilters={applyQueryFilters}
+        onOpenSettings={() => setLayerPanelOpen(!layerPanelOpen)}
       />
 
-      {/* Map */}
-      <div className="flex-1 relative">
-        <MapView
-          facilities={filtered}
-          analysis={analysis}
-          layers={layers}
-          selectedSpecialty={selectedSpecialty}
-          selectedFacility={selectedFacility}
-          onSelectFacility={setSelectedFacility}
-          highlightedNames={highlightedNames}
-        />
+      {/* Right: Map + Facilities */}
+      <div className="flex-1 flex flex-col gap-3 min-w-0">
+        {/* Map area */}
+        <div className="flex-[3] relative rounded-2xl overflow-hidden border border-[#1c2a3a]">
+          <MapView
+            facilities={filtered}
+            analysis={analysis}
+            layers={layers}
+            selectedSpecialty={selectedSpecialty}
+            selectedFacility={selectedFacility}
+            onSelectFacility={setSelectedFacility}
+            highlightedNames={highlightedNames}
+          />
 
-        {/* Bottom buttons */}
-        <div className="absolute bottom-6 right-6 z-[1000] flex gap-2">
-          <button
-            onClick={() => setChatOpen(!chatOpen)}
-            className={`rounded-full px-5 py-2.5 shadow-lg border flex items-center gap-2 transition-colors ${
-              chatOpen
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-            Ask Agent
-          </button>
+          {/* Floating layer button */}
           <button
             onClick={() => setLayerPanelOpen(!layerPanelOpen)}
-            className={`rounded-full px-5 py-2.5 shadow-lg border flex items-center gap-2 transition-colors ${
+            className={`absolute top-4 right-4 z-[1000] p-2.5 rounded-xl border shadow-lg transition-all ${
               layerPanelOpen
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                ? "bg-[#2dd4bf] border-[#2dd4bf] text-[#080c14]"
+                : "bg-[#0f1623]/90 backdrop-blur-sm border-[#1c2a3a] text-[#8b97a8] hover:text-white hover:border-[#263348]"
             }`}
+            title="Toggle layers"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-            Layers
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L12 12.75 6.429 9.75m11.142 0l4.179 2.25L12 17.25 2.25 12l4.179-2.25m11.142 0l4.179 2.25L12 22.5l-9.75-5.25 4.179-2.25"
+              />
+            </svg>
           </button>
+
+          {/* Floating layer panel */}
+          {layerPanelOpen && (
+            <div className="absolute top-16 right-4 z-[1000] w-64 bg-[#0f1623]/95 backdrop-blur-md border border-[#1c2a3a] rounded-xl p-4 shadow-2xl">
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-[#5a6577] mb-3">
+                Map Layers
+              </h3>
+
+              <div className="space-y-2.5">
+                <LayerToggle
+                  label="Facility Markers"
+                  checked={layers.showFacilities}
+                  onChange={(v) =>
+                    setLayers({ ...layers, showFacilities: v })
+                  }
+                  color="#2dd4bf"
+                />
+                <LayerToggle
+                  label="Medical Deserts"
+                  checked={layers.showDeserts}
+                  onChange={(v) =>
+                    setLayers({ ...layers, showDeserts: v })
+                  }
+                  color="#ef4444"
+                />
+                <LayerToggle
+                  label="Hospital Coverage"
+                  checked={layers.showCoverage}
+                  onChange={(v) =>
+                    setLayers({ ...layers, showCoverage: v })
+                  }
+                  color="#22c55e"
+                />
+                <LayerToggle
+                  label="Population Underserved"
+                  checked={layers.showPopulation}
+                  onChange={(v) =>
+                    setLayers({ ...layers, showPopulation: v })
+                  }
+                  color="#f59e0b"
+                />
+              </div>
+
+              {layers.showPopulation && (
+                <div className="mt-3 pt-3 border-t border-[#1c2a3a]">
+                  <div className="flex justify-between text-[11px] text-[#6b7a8d] mb-1">
+                    <span>Population Threshold</span>
+                    <span className="font-mono text-[#8b97a8]">
+                      {(layers.populationThreshold / 1000).toFixed(0)}k
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10000}
+                    max={200000}
+                    step={5000}
+                    value={layers.populationThreshold}
+                    onChange={(e) =>
+                      setLayers({
+                        ...layers,
+                        populationThreshold: Number(e.target.value),
+                      })
+                    }
+                    className="w-full"
+                  />
+                </div>
+              )}
+
+              {/* Stats */}
+              {analysis && (
+                <div className="mt-3 pt-3 border-t border-[#1c2a3a] grid grid-cols-2 gap-2">
+                  <div className="bg-[#151d2e] rounded-lg px-2.5 py-2">
+                    <div className="text-[10px] text-[#5a6577]">
+                      Facilities
+                    </div>
+                    <div className="text-sm font-bold text-white">
+                      {Object.values(analysis.regionStats).reduce(
+                        (s: number, r: any) => s + r.facilities,
+                        0
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-[#151d2e] rounded-lg px-2.5 py-2">
+                    <div className="text-[10px] text-[#5a6577]">
+                      Deserts
+                    </div>
+                    <div className="text-sm font-bold text-[#ef4444]">
+                      {analysis.medicalDeserts.length}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Highlight banner */}
+          {highlightedNames.size > 0 && (
+            <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-3 px-4 py-2.5 bg-[#0f1623]/95 backdrop-blur-md border border-[#f59e0b]/30 rounded-xl">
+              <div className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
+              <span className="text-xs text-[#f59e0b] font-medium">
+                {highlightedNames.size} facilities highlighted
+              </span>
+              <button
+                onClick={clearHighlights}
+                className="text-[11px] text-[#8b97a8] hover:text-white px-2 py-0.5 rounded-md bg-[#1a2538] hover:bg-[#263348] transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Chat panel (floating over map) */}
-        {chatOpen && (
-          <ChatPanel
-            messages={chatMessages}
-            onMessagesChange={setChatMessages}
-            facilities={facilities}
-            onHighlight={setHighlightedNames}
-            onSelectFacility={setSelectedFacility}
-            onApplyFilters={applyQueryFilters}
-            onClose={() => setChatOpen(false)}
+        {/* Facilities Panel */}
+        <div className="flex-[2] min-h-0">
+          <FacilitiesPanel
+            facilities={filtered}
+            allFacilities={facilities}
+            analysis={analysis}
+            highlightedNames={highlightedNames}
+            selectedSpecialty={selectedSpecialty}
+            onSpecialtyChange={setSelectedSpecialty}
+            allSpecialties={allSpecialties}
+            equipmentFilters={equipmentFilters}
+            onEquipmentFiltersChange={setEquipmentFilters}
           />
-        )}
+        </div>
       </div>
-
-      {/* Right Layer Panel */}
-      {layerPanelOpen && (
-        <LayerPanel
-          layers={layers}
-          onLayersChange={setLayers}
-          onClose={() => setLayerPanelOpen(false)}
-          analysis={analysis}
-        />
-      )}
     </div>
+  );
+}
+
+/* ─── Small layer toggle component ─── */
+function LayerToggle({
+  label,
+  checked,
+  onChange,
+  color,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  color: string;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-2.5 w-full group"
+    >
+      <div
+        className="w-8 h-[18px] rounded-full transition-all relative shrink-0"
+        style={{
+          backgroundColor: checked ? color : "#1c2a3a",
+        }}
+      >
+        <div
+          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-[16px]" : "translate-x-[2px]"
+          }`}
+        />
+      </div>
+      <span
+        className={`text-xs transition-colors ${
+          checked ? "text-white" : "text-[#6b7a8d] group-hover:text-[#8b97a8]"
+        }`}
+      >
+        {label}
+      </span>
+    </button>
   );
 }

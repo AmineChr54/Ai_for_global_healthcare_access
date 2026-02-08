@@ -42,16 +42,46 @@ def _get_openai() -> OpenAI:
 
 
 def _embed_texts(texts: List[str]) -> np.ndarray:
-    """Embed a batch of texts using OpenAI embeddings API."""
+    """Embed a batch of texts using OpenAI embeddings API with rate-limit handling."""
+    import time as _time
+
     client = _get_openai()
-    # OpenAI allows batches up to 2048
     all_embeddings = []
-    batch_size = 512
-    for i in range(0, len(texts), batch_size):
+    batch_size = 256  # smaller batches to reduce chance of 429s
+    total_batches = (len(texts) + batch_size - 1) // batch_size
+
+    for batch_idx, i in enumerate(range(0, len(texts), batch_size)):
         batch = texts[i : i + batch_size]
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
-        batch_embs = [item.embedding for item in response.data]
-        all_embeddings.extend(batch_embs)
+        logger.info(
+            f"Embedding batch {batch_idx + 1}/{total_batches} ({len(batch)} texts) …"
+        )
+
+        # Retry loop with exponential backoff for rate limits
+        for attempt in range(10):
+            try:
+                response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
+                batch_embs = [item.embedding for item in response.data]
+                all_embeddings.extend(batch_embs)
+                break
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "rate" in err_str.lower():
+                    wait = min(2 ** attempt * 5, 60)
+                    logger.warning(
+                        f"Embedding rate limited, retrying in {wait}s (attempt {attempt + 1}/10)"
+                    )
+                    _time.sleep(wait)
+                else:
+                    raise
+        else:
+            raise RuntimeError(
+                f"Failed to embed batch {batch_idx + 1} after 10 retries"
+            )
+
+        # Small pause between batches to stay under RPM
+        if batch_idx < total_batches - 1:
+            _time.sleep(2)
+
     arr = np.array(all_embeddings, dtype=np.float32)
     # Normalize for cosine similarity via inner product
     faiss.normalize_L2(arr)

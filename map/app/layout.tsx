@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "VF Healthcare Map — Ghana",
+  title: "Virtue Foundation — Living Map",
   description:
-    "Interactive map of Ghana healthcare facilities, medical deserts, and coverage gaps — Virtue Foundation",
+    "AI-powered healthcare intelligence dashboard for Ghana — Virtue Foundation",
 };
 
 export default function RootLayout({
@@ -13,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <link
           rel="stylesheet"
@@ -31,7 +34,9 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="bg-gray-50 text-gray-900 antialiased">{children}</body>
+      <body className={`${inter.className} bg-[#080c14] text-[#e8edf5] antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }
