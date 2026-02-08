@@ -4,27 +4,34 @@ version = "0.1.0"
 description = "Agentic AI intelligence layer for global healthcare access — Virtue Foundation"
 requires-python = ">=3.10"
 dependencies = [
+    # Core
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+
+    # Data loading and parsing (ingestion)
+    "pandas>=2.0",
+
+    # Database
+    "psycopg[binary]>=3.1",
+    "pgvector>=0.2.0",
+
     # LangGraph pipeline
     "langgraph>=0.2.0",
     "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
 
     # OpenAI
     "openai>=1.50.0",
 
-    # Vector Store
+    # Vector store
     "faiss-cpu>=1.8.0",
-
-    # Database (SQLite via datacleaning; same DB as map)
 
     # Numeric (required by faiss-cpu)
     "numpy>=1.26.0",
 
-    # Pydantic
-    "pydantic>=2.5.0",
-
-    # Environment
-    "python-dotenv>=1.0.0",
+    # Geocoding (ingestion / prepare_map_data)
+    "geopy>=2.4",
 
     # API Server
     "fastapi>=0.110.0",
@@ -32,6 +39,7 @@ dependencies = [
 
     # CLI
     "rich>=13.7.0",
+    "typer>=0.12",
 ]
 
 [project.optional-dependencies]

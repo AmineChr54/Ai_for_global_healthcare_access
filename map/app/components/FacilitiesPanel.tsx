@@ -327,11 +327,46 @@ export default function FacilitiesPanel({
   const [showInsights, setShowInsights] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<"filters" | "facility">("filters");
+  const [institutionsOpen, setInstitutionsOpen] = useState(true);
 
   /* When a facility is selected (e.g. from map), switch to Facility info tab */
   useEffect(() => {
     if (selectedFacility) setRightTab("facility");
   }, [selectedFacility?.uid]);
+
+  /* When AI/chat filter is active, sync the filters view: use only types/specialty represented in the filtered set, and update counts */
+  const facilitiesForCounts = chatFilterActive ? facilities : allFacilities;
+  useEffect(() => {
+    if (!chatFilterActive || facilities.length === 0) return;
+    const list = facilities;
+    const typesPresent = new Set<string>();
+    for (const cat of FACILITY_CATEGORIES) {
+      if (cat.key === "other") {
+        const n = list.filter(
+          (f) => f.orgType !== "ngo" && (!f.type || !STANDARD_TYPE_KEYS.has(f.type))
+        ).length;
+        if (n > 0) typesPresent.add("other");
+      } else {
+        const n = list.filter(
+          (f) => f.type === cat.key && f.orgType !== "ngo"
+        ).length;
+        if (n > 0) typesPresent.add(cat.key);
+      }
+    }
+    const ngoCount = list.filter((f) => f.orgType === "ngo").length;
+    onSelectedTypesChange(typesPresent);
+    onShowNgosChange(ngoCount > 0);
+    const allSpecs = list.flatMap((f) => f.specialties || []);
+    if (allSpecs.length > 0) {
+      const bySpec: Record<string, number> = {};
+      for (const s of allSpecs) {
+        bySpec[s] = (bySpec[s] ?? 0) + 1;
+      }
+      const best = Object.entries(bySpec).sort((a, b) => b[1] - a[1])[0];
+      if (best) onSpecialtyChange(best[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when AI filter or filtered set changes
+  }, [chatFilterActive, facilities]);
 
   /* Scroll list to selected facility when selection changes (e.g. from map click) */
   const selectedRowRef = useRef<HTMLButtonElement | null>(null);
@@ -369,33 +404,35 @@ export default function FacilitiesPanel({
     return generateInsights(analysis, allFacilities);
   }, [analysis, allFacilities]);
 
-  /* counts per category */
+  /* counts per category — when AI filter is active, show counts for the filtered set */
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    const source = facilitiesForCounts;
     for (const cat of FACILITY_CATEGORIES) {
       if (cat.key === "other") {
-        counts["other"] = allFacilities.filter(
+        counts["other"] = source.filter(
           (f) => f.orgType !== "ngo" && (!f.type || !STANDARD_TYPE_KEYS.has(f.type))
         ).length;
       } else {
-        counts[cat.key] = allFacilities.filter(
+        counts[cat.key] = source.filter(
           (f) => f.type === cat.key && f.orgType !== "ngo"
         ).length;
       }
     }
-    counts["ngo"] = allFacilities.filter((f) => f.orgType === "ngo").length;
+    counts["ngo"] = source.filter((f) => f.orgType === "ngo").length;
     return counts;
-  }, [allFacilities]);
+  }, [facilitiesForCounts]);
 
-  /* available sub-filter options per category */
+  /* available sub-filter options per category — when AI filter active, options reflect filtered set */
   const categoryOptions = useMemo(() => {
     const opts: Record<string, CategoryFilterOptions> = {};
+    const source = facilitiesForCounts;
     for (const cat of FACILITY_CATEGORIES) {
-      opts[cat.key] = computeCategoryOptions(allFacilities, cat.key);
+      opts[cat.key] = computeCategoryOptions(source, cat.key);
     }
-    opts["ngo"] = computeCategoryOptions(allFacilities, "ngo");
+    opts["ngo"] = computeCategoryOptions(source, "ngo");
     return opts;
-  }, [allFacilities]);
+  }, [facilitiesForCounts]);
 
   /* count of active sub-filters */
   const activeSubFilterCount = useMemo(() => {
@@ -743,8 +780,28 @@ export default function FacilitiesPanel({
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {/* Category filters */}
-          <div className="px-4 py-3 space-y-1">
+          {/* Institutions (category) filter — collapsible */}
+          <div className="px-4 py-2">
+            <button
+              type="button"
+              onClick={() => setInstitutionsOpen(!institutionsOpen)}
+              className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-xl text-left transition-colors hover:bg-[#151d2e] group/inst"
+            >
+              <span className="text-xs font-semibold tracking-[0.08em] uppercase text-[#5a6577] group-hover/inst:text-[#8b97a8]">
+                Institutions
+              </span>
+              <svg
+                className={`w-4 h-4 text-[#5a6577] transition-transform ${institutionsOpen ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {institutionsOpen && (
+            <div className="pt-1 space-y-1">
             {FACILITY_CATEGORIES.map((cat) => {
               const checked = selectedTypes.has(cat.key);
               const count = categoryCounts[cat.key] || 0;
@@ -884,6 +941,8 @@ export default function FacilitiesPanel({
               {expandedCategory === "ngo" &&
                 renderSubFilters("ngo", "#ef4444")}
             </div>
+            </div>
+            )}
           </div>
 
           {/* Divider */}

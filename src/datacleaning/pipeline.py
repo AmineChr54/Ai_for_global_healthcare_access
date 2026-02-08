@@ -269,3 +269,31 @@ def process_single_row(row: ScrapedRow, db_url: str | None = None) -> str:
     record_processed(conn, row.source_url, str(row.content_table_id) if row.content_table_id else None, org_id)
     conn.close()
     return org_id
+
+
+def refresh_map_data_after_ingest(db_url: str | None = None) -> bool:
+    """
+    Run prepare_map_data so the map frontend gets updated facilities.json and analysis.json.
+    Call after ingest. Uses DATABASE_URL from env (or db_url if provided). Returns True on success.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent.parent
+    script = root / "scripts" / "prepare_map_data.py"
+    if not script.exists():
+        return False
+    env = os.environ.copy()
+    if db_url:
+        env["DATABASE_URL"] = db_url
+    try:
+        r = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(root),
+            env=env,
+            capture_output=False,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False

@@ -283,13 +283,7 @@ export default function Home() {
 
           {/* Floating search bar */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]">
-            <SearchBar
-              search={search}
-              onSearchChange={setSearch}
-              selectedSpecialty={selectedSpecialty}
-              onSpecialtyChange={setSelectedSpecialty}
-              allSpecialties={allSpecialties}
-            />
+            <SearchBar search={search} onSearchChange={setSearch} />
           </div>
 
           {/* Coverage info card */}
