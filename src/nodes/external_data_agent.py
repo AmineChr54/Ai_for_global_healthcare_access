@@ -16,7 +16,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
-from src.data.ghana_context import get_full_context
+from src.data.ghana_context import GHANA_CONTEXT, get_full_context
 from src.llm import get_llm
 from src.state import AgentState
 
